@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  /* This app is a fixed light-theme admin dashboard (the Sidebar is deliberately dark via
+     explicit Tailwind classes, not via this variable) — pin color-scheme so browsers never
+     apply OS-level dark native theming to inputs/selects, which made their text unreadable. */
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Tailwind's preflight resets buttons to the browser default (arrow) cursor
+   instead of pointer. Restore pointer on every actionable button/role=button
+   app-wide, without overriding the explicit disabled:cursor-not-allowed
+   classes already used throughout the app for disabled states. */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]) {
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+button:not(:disabled):active,
+[role="button"]:not([aria-disabled="true"]):active {
+  transform: scale(0.97);
+}
+
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+.scrollbar-thin::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 9999px;
+  border: 2px solid var(--background);
+  background-clip: padding-box;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8;
+}
+
+.scrollbar-thin-dark {
+  scrollbar-width: thin;
+  scrollbar-color: #475569 transparent;
+}
+.scrollbar-thin-dark::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.scrollbar-thin-dark::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin-dark::-webkit-scrollbar-thumb {
+  background-color: #475569;
+  border-radius: 9999px;
+  border: 2px solid #0f172a;
+  background-clip: padding-box;
+}
+.scrollbar-thin-dark::-webkit-scrollbar-thumb:hover {
+  background-color: #64748b;
+}
