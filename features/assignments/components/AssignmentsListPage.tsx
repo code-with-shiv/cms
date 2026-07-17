@@ -42,7 +42,6 @@ export function AssignmentsListPage() {
   const [error, setError] = useState("");
   const [filters, setFilters] = useState<FilterState>({ creator_email: "", reviewer_email: "", status: "" });
 
-  const [expandedId, setExpandedId] = useState<number | null>(null);
   const [completingId, setCompletingId] = useState<number | null>(null);
   const [reassigningId, setReassigningId] = useState<number | null>(null);
   const [reassignCreator, setReassignCreator] = useState("");
@@ -254,10 +253,9 @@ export function AssignmentsListPage() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {assignments.map((a) => {
-                  const isExpanded = expandedId === a.id;
                   return (
                     <Fragment key={a.id}>
-                      <tr onClick={() => setExpandedId(isExpanded ? null : a.id)} className="cursor-pointer hover:bg-slate-50">
+                      <tr className="hover:bg-slate-50">
                         <td className="px-4 py-3 font-mono text-xs text-slate-400">#{a.id}</td>
                         <td className="px-4 py-3 text-slate-600">{ASSIGNMENT_LEVEL_LABEL[a.level]}</td>
                         <td className="px-4 py-3">
@@ -282,7 +280,7 @@ export function AssignmentsListPage() {
                             <p className="text-xs text-slate-400">Completed {new Date(a.completed_at).toLocaleDateString()}</p>
                           ) : null}
                         </td>
-                        <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                        <td className="px-4 py-3">
                           {a.status === "active" || a.status === "completed" ? (
                             <div className="flex items-center gap-1.5">
                               {a.status === "active" ? (
@@ -309,16 +307,6 @@ export function AssignmentsListPage() {
                           )}
                         </td>
                       </tr>
-
-                      {isExpanded ? (
-                        <tr>
-                          <td colSpan={8} className="bg-slate-50 px-4 py-4">
-                            <pre className="max-h-72 overflow-auto rounded-lg bg-slate-950 px-4 py-3 text-xs leading-relaxed text-slate-200">
-                              {JSON.stringify(a, null, 2)}
-                            </pre>
-                          </td>
-                        </tr>
-                      ) : null}
                     </Fragment>
                   );
                 })}
