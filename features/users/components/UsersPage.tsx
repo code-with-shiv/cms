@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { AppShell } from "@/components/common/AppShell";
-import { getAllUsers, getUsersByRole } from "@/features/users/services/users.service";
+import { getAllUsers } from "@/features/users/services/users.service";
 import { getApiErrorMessage } from "@/utils/api-error";
 import type { Role } from "@/types/auth";
 import type { ManagedUser } from "@/types/user";
@@ -16,7 +16,7 @@ const ROLE_FILTERS: Array<Role | "all"> = ["all", "creator", "reviewer", "admin"
 
 export function UsersPage() {
   const { user, isLoading: isAuthLoading } = useAuth();
-  const [users, setUsers] = useState<ManagedUser[]>([]);
+  const [allUsers, setAllUsers] = useState<ManagedUser[]>([]);
   const [roleFilter, setRoleFilter] = useState<Role | "all">("all");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -38,8 +38,8 @@ export function UsersPage() {
       setIsLoading(true);
       setError("");
       try {
-        const data = roleFilter === "all" ? await getAllUsers() : await getUsersByRole(roleFilter);
-        if (!cancelled) setUsers(data);
+        const data = await getAllUsers();
+        if (!cancelled) setAllUsers(data);
       } catch (err) {
         if (!cancelled) setError(getApiErrorMessage(err, "Could not load users."));
       } finally {
@@ -51,7 +51,9 @@ export function UsersPage() {
     return () => {
       cancelled = true;
     };
-  }, [isAdmin, roleFilter, refreshToken]);
+  }, [isAdmin, refreshToken]);
+
+  const users = roleFilter === "all" ? allUsers : allUsers.filter((u) => u.role === roleFilter);
 
   if (isAuthLoading) {
     return <div className="flex min-h-screen items-center justify-center text-sm text-slate-500">Loading…</div>;
