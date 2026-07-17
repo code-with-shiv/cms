@@ -65,6 +65,7 @@ export function CreateUserPanel({ onClose, onCreated }: CreateUserPanelProps) {
     setIsPasswordSaving(true);
     try {
       await setUserPassword(email.trim(), newPassword);
+      setTempPassword(newPassword);
       setPasswordUpdated(true);
       setIsEditingPassword(false);
     } catch (err) {
@@ -81,7 +82,9 @@ export function CreateUserPanel({ onClose, onCreated }: CreateUserPanelProps) {
           <div className="space-y-4">
             <p className="text-sm font-medium text-slate-900">User created successfully.</p>
             <div>
-              <p className="text-sm text-slate-600">Temporary password (shown once — share it securely):</p>
+              <p className="text-sm text-slate-600">
+                {passwordUpdated ? "Updated password" : "Temporary password"} (shown once — share it securely):
+              </p>
               <code className="mt-1 block rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-900">{tempPassword}</code>
             </div>
 
@@ -114,7 +117,7 @@ export function CreateUserPanel({ onClose, onCreated }: CreateUserPanelProps) {
                 </div>
               </form>
             ) : (
-              <>
+              <div className="flex items-center justify-between gap-4">
                 {passwordUpdated ? (
                   <p className="text-sm font-medium text-emerald-700">Password updated.</p>
                 ) : (
@@ -133,7 +136,7 @@ export function CreateUserPanel({ onClose, onCreated }: CreateUserPanelProps) {
                 >
                   Done
                 </button>
-              </>
+              </div>
             )}
           </div>
         ) : (
