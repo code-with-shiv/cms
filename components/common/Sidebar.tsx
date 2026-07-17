@@ -67,7 +67,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "Questions",
     items: [
-      { label: "Question count", href: "/dashboard", icon: LuLayoutDashboard },
+      { label: "Question count", href: "/dashboard", icon: LuLayoutDashboard, roles: ["superadmin"] },
       { label: "Create Question", href: "/questions/create", icon: LuFilePlus2, roles: ["creator", "admin", "superadmin"] },
       { label: "All Questions", href: "/questions", icon: LuFileQuestion },
       { label: "Search Questions", href: "/questions/search", icon: LuSearch },
