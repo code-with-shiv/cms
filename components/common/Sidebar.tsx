@@ -8,7 +8,6 @@ import {
   LuClipboardCheck,
   LuClipboardList,
   LuClipboardPlus,
-  LuFileJson,
   LuFilePlus2,
   LuFileQuestion,
   LuFileStack,
@@ -21,7 +20,6 @@ import {
   LuSearch,
   LuUpload,
   LuUsers,
-  LuWandSparkles,
   LuX,
 } from "react-icons/lu";
 import { useAuth } from "@/context/AuthContext";
@@ -81,8 +79,6 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: "Import DOCX", href: "/ingestion/docx", icon: LuFileUp, roles: ["admin", "superadmin"] },
       { label: "Flashcards", href: "/ingestion/flashcards", icon: LuFileStack, roles: ["admin", "superadmin"] },
-      { label: "Upload JSON", href: "/ingestion/upload-questions", icon: LuFileJson, roles: ["admin", "superadmin"] },
-      { label: "AI Question Generator", href: "/ingestion/generate", icon: LuWandSparkles, roles: ["admin", "superadmin"] },
       { label: "Publish Content", href: "/ingestion/publish", icon: LuUpload, roles: ["admin", "superadmin"] },
     ],
   },
