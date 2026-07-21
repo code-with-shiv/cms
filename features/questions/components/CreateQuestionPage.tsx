@@ -315,6 +315,10 @@ export function CreateQuestionPage() {
       payload.luid = hierarchy.luid;
       payload.lu_name = hierarchy.luName;
     }
+    if (hierarchy.loid) {
+      payload.loid = hierarchy.loid;
+      payload.lo_name = hierarchy.loName;
+    }
     if (schema.requires_year) payload.year = year;
     if (schema.test_based) payload.total_marks = totalMarks;
     if (schema.allowed_question_format.length) payload.question_format = questionFormat;

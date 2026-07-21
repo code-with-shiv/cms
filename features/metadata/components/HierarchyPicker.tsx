@@ -15,7 +15,7 @@ import { getTemplates } from "@/features/templates/services/templates.service";
 import type { Template } from "@/types/template";
 import type { ChapterOption, HierarchicalChapter, LearningUnitOption, TopicOption } from "@/types/metadata";
 
-type CascadeKey = "questionType" | "board" | "grade" | "subject" | "chapter" | "topic" | "lu";
+type CascadeKey = "questionType" | "board" | "grade" | "subject" | "chapter" | "topic" | "lu" | "lo";
 type CascadeState = Record<CascadeKey, string>;
 
 interface SelectOption {
@@ -37,6 +37,7 @@ const CASCADE_FIELDS: CascadeField[] = [
   { key: "chapter", label: "Chapter", helper: "Chapter scope" },
   { key: "topic", label: "Topic", helper: "Final topic" },
   { key: "lu", label: "Learning Unit", helper: "Final learning unit" },
+  { key: "lo", label: "Learning Objective", helper: "Final learning objective" },
 ];
 
 const EMPTY_CASCADE: CascadeState = {
@@ -47,6 +48,7 @@ const EMPTY_CASCADE: CascadeState = {
   chapter: "",
   topic: "",
   lu: "",
+  lo: "",
 };
 
 function getSelectedLabel(options: SelectOption[], value: string) {
@@ -125,6 +127,8 @@ export interface HierarchyPathResult {
   topicName?: string;
   luid?: string;
   luName?: string;
+  loid?: string;
+  loName?: string;
 }
 
 interface HierarchyPickerProps {
@@ -235,8 +239,8 @@ export function HierarchyPicker({ onChange, maxDepth }: HierarchyPickerProps) {
   );
 
   const activeCascadeFields = useMemo(() => {
-    if (!shouldShowTopicLevel) return CASCADE_FIELDS.filter((f) => f.key !== "topic" && f.key !== "lu");
-    if (!needsLU) return CASCADE_FIELDS.filter((f) => f.key !== "lu");
+    if (!shouldShowTopicLevel) return CASCADE_FIELDS.filter((f) => f.key !== "topic" && f.key !== "lu" && f.key !== "lo");
+    if (!needsLU) return CASCADE_FIELDS.filter((f) => f.key !== "lu" && f.key !== "lo");
     return CASCADE_FIELDS;
   }, [needsLU, shouldShowTopicLevel]);
 
@@ -264,21 +268,29 @@ export function HierarchyPicker({ onChange, maxDepth }: HierarchyPickerProps) {
       .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
   }, [cascade.chapter, hierarchyChapters, shouldShowTopicLevel, shouldUsePostHierarchy, topicsData]);
 
-  const luOptions = useMemo(() => {
+  const learningUnitRecords = useMemo(() => {
     if (!needsLU) return [];
     if (shouldUsePostHierarchy) {
       const chapter = hierarchyChapters.find((c) => String(c.chapter_id ?? c.chapter_name) === cascade.chapter);
       const topic = chapter?.topics.find((t) => String(t.topic_id) === cascade.topic);
-      return (topic?.learning_units ?? [])
-        .filter((lu) => lu.luid)
-        .map((lu) => ({ label: lu.lu_name ?? lu.lu ?? lu.luid ?? "", value: lu.luid ?? "" }))
-        .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+      return (topic?.learning_units ?? []).filter((lu) => lu.luid);
     }
-    return learningUnitsData
-      .filter((lu) => lu.luid)
-      .map((lu) => ({ label: lu.lu_name ?? lu.lu ?? lu.luid ?? "", value: lu.luid ?? "" }))
-      .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+    return learningUnitsData.filter((lu) => lu.luid);
   }, [cascade.chapter, cascade.topic, hierarchyChapters, learningUnitsData, needsLU, shouldUsePostHierarchy]);
+
+  const luOptions = useMemo(
+    () =>
+      learningUnitRecords
+        .map((lu) => ({ label: lu.lu_name ?? lu.lu ?? lu.luid ?? "", value: lu.luid ?? "" }))
+        .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true })),
+    [learningUnitRecords],
+  );
+
+  const loOptions = useMemo(() => {
+    if (!needsLU || !cascade.lu) return [];
+    const record = learningUnitRecords.find((lu) => lu.luid === cascade.lu);
+    return (record?.lo ?? []).map((lo) => ({ label: lo.lo_name, value: lo.loid }));
+  }, [cascade.lu, learningUnitRecords, needsLU]);
 
   const selectedTrail = useMemo(() => {
     const trailOptions: Record<CascadeKey, SelectOption[]> = {
@@ -289,6 +301,7 @@ export function HierarchyPicker({ onChange, maxDepth }: HierarchyPickerProps) {
       chapter: chapterOptions,
       topic: topicOptions,
       lu: luOptions,
+      lo: loOptions,
     };
     return activeCascadeFields
       .map((field) => ({ field, label: getSelectedLabel(trailOptions[field.key], cascade[field.key]) }))
@@ -300,6 +313,7 @@ export function HierarchyPicker({ onChange, maxDepth }: HierarchyPickerProps) {
     chapterOptions,
     gradeOptions,
     luOptions,
+    loOptions,
     subjectOptions,
     templateOptions,
     topicOptions,
@@ -314,7 +328,7 @@ export function HierarchyPicker({ onChange, maxDepth }: HierarchyPickerProps) {
 
   const activeField = activeCascadeFields[activeFieldIndex];
   const pickerLabel = selectedTrail.length ? selectedTrail.map((i) => i.label).join(" / ") : "Select question path";
-  const isPathComplete = needsLU ? Boolean(cascade.lu) : shouldShowTopicLevel ? Boolean(cascade.topic) : Boolean(cascade.chapter);
+  const isPathComplete = needsLU ? Boolean(cascade.lo) : shouldShowTopicLevel ? Boolean(cascade.topic) : Boolean(cascade.chapter);
 
   function getOptionsForField(key: CascadeKey) {
     if (key === "questionType") return templateOptions;
@@ -323,7 +337,8 @@ export function HierarchyPicker({ onChange, maxDepth }: HierarchyPickerProps) {
     if (key === "subject") return subjectOptions;
     if (key === "chapter") return chapterOptions;
     if (key === "topic") return topicOptions;
-    return luOptions;
+    if (key === "lu") return luOptions;
+    return loOptions;
   }
 
   const activeOptions = getOptionsForField(activeField.key);
@@ -432,6 +447,8 @@ export function HierarchyPicker({ onChange, maxDepth }: HierarchyPickerProps) {
       topicName: cascade.topic ? getSelectedLabel(topicOptions, cascade.topic) : undefined,
       luid: needsLU && cascade.lu ? cascade.lu : undefined,
       luName: needsLU && cascade.lu ? getSelectedLabel(luOptions, cascade.lu) : undefined,
+      loid: needsLU && cascade.lo ? cascade.lo : undefined,
+      loName: needsLU && cascade.lo ? getSelectedLabel(loOptions, cascade.lo) : undefined,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cascade, isPathComplete, selectedTemplate]);

@@ -8,10 +8,16 @@ export interface TopicOption {
   topic_name: string;
 }
 
+export interface LearningObjectiveOption {
+  loid: string;
+  lo_name: string;
+}
+
 export interface LearningUnitOption {
   lu?: string;
   luid?: string;
   lu_name?: string;
+  lo?: LearningObjectiveOption[];
 }
 
 export interface LearningUnitsByChapter {
