@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { LuBookOpen, LuCheck, LuCopy, LuLightbulb, LuTag, LuX } from "react-icons/lu";
+import { LuBookOpen, LuCheck, LuCopy, LuLightbulb, LuMessageSquare, LuTag, LuX } from "react-icons/lu";
 import { RenderInline } from "@/features/questions/components/RenderInline";
 import { contentBlocksToText } from "@/features/questions/utils/content-blocks";
 import type { QuestionDocument } from "@/types/question";
@@ -86,6 +86,11 @@ export function QuestionDetailsModal({ question, onClose }: QuestionDetailsModal
   const solutionParts = getSolutionParts(question);
   const hint = contentBlocksToText(question.hint);
   const hasSolution = solutionParts.length > 0;
+  const reviewComment = hasDisplayValue(question.review_comment)
+    ? String(question.review_comment)
+    : hasDisplayValue(question.comment)
+      ? String(question.comment)
+      : "";
   const totalMarks = question.total_marks;
   const hasTotalMarks = hasDisplayValue(totalMarks);
 
@@ -261,6 +266,24 @@ export function QuestionDetailsModal({ question, onClose }: QuestionDetailsModal
           </main>
 
           <aside className="modal-scroll min-h-0 space-y-3 overflow-y-auto bg-slate-50 p-5">
+            {reviewComment ? (
+              <section className="overflow-hidden rounded-xl border border-amber-300 bg-amber-50">
+                <h3 className="flex items-center gap-2 border-b border-amber-200 px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-amber-700">
+                  <LuMessageSquare className="h-3.5 w-3.5" />
+                  Review comment
+                </h3>
+                <div className="px-4 py-4">
+                  <p className="whitespace-pre-wrap text-[13px] leading-6 text-amber-900">{reviewComment}</p>
+                  {hasDisplayValue(question.reviewed_by) || hasDisplayValue(question.reviewed_at) ? (
+                    <p className="mt-2 text-[11px] text-amber-700">
+                      {hasDisplayValue(question.reviewed_by) ? String(question.reviewed_by) : "—"}
+                      {hasDisplayValue(question.reviewed_at) ? ` · ${String(question.reviewed_at)}` : ""}
+                    </p>
+                  ) : null}
+                </div>
+              </section>
+            ) : null}
+
             <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
               <h3 className="flex items-center gap-2 border-b border-slate-100 px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-slate-500">
                 <LuCheck className="h-3.5 w-3.5" />

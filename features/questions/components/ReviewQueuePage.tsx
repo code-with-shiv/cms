@@ -8,7 +8,7 @@ import { QuestionDetailsModal } from "@/features/questions/components/QuestionDe
 import { ReviewActionModal } from "@/features/questions/components/ReviewActionModal";
 import { RenderInline } from "@/features/questions/components/RenderInline";
 import { contentBlocksToText } from "@/features/questions/utils/content-blocks";
-import { getQuestions, reviewQuestion } from "@/features/questions/services/questions.service";
+import { getQuestionByQid, getQuestions, reviewQuestion } from "@/features/questions/services/questions.service";
 import { getApiErrorMessage } from "@/utils/api-error";
 import type { QuestionDocument, ReviewAction } from "@/types/question";
 
@@ -20,6 +20,7 @@ export function ReviewQueuePage() {
   const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState("");
   const [viewing, setViewing] = useState<QuestionDocument | null>(null);
+  const [loadingQid, setLoadingQid] = useState<number | null>(null);
   const [pendingAction, setPendingAction] = useState<{ doc: QuestionDocument; action: ReviewAction } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -41,6 +42,20 @@ export function ReviewQueuePage() {
       setError(getApiErrorMessage(err, "Could not load questions."));
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function handleView(doc: QuestionDocument) {
+    if (!scope) return;
+    setError("");
+    setLoadingQid(doc.qid);
+    try {
+      const results = await getQuestionByQid({ template_id: scope.templateId, qid: doc.qid });
+      setViewing(results[0] ?? doc);
+    } catch (err) {
+      setError(getApiErrorMessage(err, `Could not load full details for Q-${doc.qid}.`));
+    } finally {
+      setLoadingQid(null);
     }
   }
 
@@ -143,10 +158,11 @@ export function ReviewQueuePage() {
                             <div className="flex flex-wrap items-center gap-2">
                               <button
                                 type="button"
-                                onClick={() => setViewing(q)}
-                                className="rounded-md border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                                onClick={() => handleView(q)}
+                                disabled={loadingQid === q.qid}
+                                className="rounded-md border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-60"
                               >
-                                View
+                                {loadingQid === q.qid ? "Loading…" : "View"}
                               </button>
                               <button
                                 type="button"
