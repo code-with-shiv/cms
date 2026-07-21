@@ -2,12 +2,86 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AxiosError } from "axios";
-import { LuChevronDown, LuChevronUp, LuHistory, LuX } from "react-icons/lu";
+import { LuCheck, LuChevronDown, LuChevronUp, LuHistory, LuX } from "react-icons/lu";
 import { RenderInline } from "@/features/questions/components/RenderInline";
 import { contentBlocksToText } from "@/features/questions/utils/content-blocks";
 import { getVersionHistory } from "@/features/questions/services/questions.service";
 import { getApiErrorMessage } from "@/utils/api-error";
-import type { VersionEntry } from "@/types/question";
+import type { QuestionDocument, VersionEntry } from "@/types/question";
+
+function hasDisplayValue(value: unknown) {
+  return value !== null && value !== undefined && value !== "";
+}
+
+// Renders a version snapshot as a complete, formatted question (question, options,
+// solution, hint) — snapshots may omit sections (status-only edits store metadata only).
+function SnapshotDetails({ snapshot }: { snapshot: QuestionDocument }) {
+  const questionText = contentBlocksToText(snapshot.question);
+  const solutionText = contentBlocksToText(snapshot.solution);
+  const hintText = contentBlocksToText(snapshot.hint);
+  const options = (snapshot.options ?? []).flatMap((option, index) => {
+    const content = contentBlocksToText(option.option);
+    if (!content) return [];
+    return [{ key: `${index}`, label: String.fromCharCode(65 + index), content, isCorrect: Boolean(option.is_correct) }];
+  });
+
+  return (
+    <div className="mt-2 space-y-3 rounded-lg bg-slate-50 p-3">
+      {questionText ? (
+        <div>
+          <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">Question</p>
+          <RenderInline content={questionText} className="text-xs font-medium text-slate-900" style={{ padding: 0, overflow: "visible" }} />
+        </div>
+      ) : null}
+
+      {options.length ? (
+        <div>
+          <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">Options</p>
+          <div className="space-y-1.5">
+            {options.map((option) => (
+              <div
+                key={option.key}
+                className={`flex items-start gap-2 rounded-md border px-2 py-1.5 ${
+                  option.isCorrect ? "border-emerald-300 bg-emerald-50" : "border-slate-200 bg-white"
+                }`}
+              >
+                <span
+                  className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold ${
+                    option.isCorrect ? "border-emerald-600 bg-emerald-600 text-white" : "border-slate-300 text-slate-500"
+                  }`}
+                >
+                  {option.label}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <RenderInline content={option.content} className="text-xs text-slate-800" style={{ padding: 0, overflow: "visible" }} />
+                </div>
+                {option.isCorrect ? <LuCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" /> : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {solutionText ? (
+        <div>
+          <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">Solution</p>
+          <RenderInline content={solutionText} className="text-xs text-slate-700" style={{ padding: 0, overflow: "visible" }} />
+        </div>
+      ) : null}
+
+      {hintText ? (
+        <div>
+          <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">Hint</p>
+          <RenderInline content={hintText} className="text-xs text-slate-700" style={{ padding: 0, overflow: "visible" }} />
+        </div>
+      ) : null}
+
+      {!questionText && !options.length && !solutionText && !hintText ? (
+        <p className="text-xs italic text-slate-400">No content changed in this version.</p>
+      ) : null}
+    </div>
+  );
+}
 
 const CHANGE_TYPE_STYLES: Record<string, string> = {
   submitted_for_review: "bg-violet-100 text-violet-700",
@@ -112,7 +186,14 @@ export function VersionHistoryModal({ qid, templateId, onClose }: VersionHistory
             <div className="space-y-3">
               {versions.map((entry) => {
                 const isOpen = expanded === entry.version;
-                const questionText = contentBlocksToText(entry.snapshot?.question);
+                const snapshot = entry.snapshot;
+                const hasContent = Boolean(
+                  snapshot &&
+                    (hasDisplayValue(contentBlocksToText(snapshot.question)) ||
+                      hasDisplayValue(contentBlocksToText(snapshot.solution)) ||
+                      hasDisplayValue(contentBlocksToText(snapshot.hint)) ||
+                      (snapshot.options ?? []).some((o) => hasDisplayValue(contentBlocksToText(o.option)))),
+                );
                 return (
                   <div key={entry.version} className="rounded-xl border border-slate-200 bg-white">
                     <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
@@ -137,7 +218,7 @@ export function VersionHistoryModal({ qid, templateId, onClose }: VersionHistory
                         <span>{entry.changed_at}</span>
                       </div>
                     </div>
-                    {questionText ? (
+                    {hasContent ? (
                       <div className="border-t border-slate-100 px-4 py-3">
                         <button
                           type="button"
@@ -154,11 +235,7 @@ export function VersionHistoryModal({ qid, templateId, onClose }: VersionHistory
                             </>
                           )}
                         </button>
-                        {isOpen ? (
-                          <div className="mt-2 rounded-lg bg-slate-50 p-3">
-                            <RenderInline content={questionText} className="text-xs text-slate-800" style={{ padding: 0 }} />
-                          </div>
-                        ) : null}
+                        {isOpen ? <SnapshotDetails snapshot={snapshot} /> : null}
                       </div>
                     ) : null}
                   </div>
