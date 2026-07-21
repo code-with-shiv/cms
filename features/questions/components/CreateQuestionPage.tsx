@@ -410,7 +410,7 @@ export function CreateQuestionPage() {
 
   return (
     <AppShell title="create-question">
-      <section className="flex h-[calc(100vh-64px)] flex-col overflow-hidden bg-slate-100">
+      <section className="flex min-h-[calc(100vh-64px)] flex-col overflow-y-auto bg-slate-100">
         <div className="sticky top-0 z-10 flex flex-col gap-3 border-b border-slate-200 bg-white px-5 py-2.5 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-wrap items-center gap-2 text-xs">
             {hierarchy ? (
@@ -478,29 +478,6 @@ export function CreateQuestionPage() {
             ) : (
               <HierarchyPicker onChange={setHierarchy} />
             )}
-            {needsLoPicker ? (
-              <label className="mt-3 block text-xs font-semibold text-slate-800">
-                Learning Objective <span className="text-rose-500">*</span>
-                <Select
-                  value={hierarchy?.loid ?? ""}
-                  onChange={(e) => {
-                    const loid = e.target.value;
-                    const loName = loOptions.find((lo) => lo.loid === loid)?.lo_name ?? "";
-                    setHierarchy((c) => (c ? { ...c, loid: loid || undefined, loName: loid ? loName : undefined } : c));
-                  }}
-                  className="mt-2"
-                >
-                  <option value="" disabled>
-                    {loOptions.length ? "Select a learning objective…" : "No learning objectives for this unit"}
-                  </option>
-                  {loOptions.map((lo) => (
-                    <option key={lo.loid} value={lo.loid}>
-                      {lo.lo_name}
-                    </option>
-                  ))}
-                </Select>
-              </label>
-            ) : null}
             {isSchemaLoading ? <p className="mt-2 text-xs text-slate-500">Loading template schema…</p> : null}
             {schemaError ? <p className="mt-2 text-xs text-rose-600">{schemaError}</p> : null}
           </EditorCard>
@@ -531,7 +508,7 @@ export function CreateQuestionPage() {
 
             <div className={`grid min-h-0 flex-1 ${isPreviewMode ? "xl:grid-cols-[minmax(0,1.55fr)_minmax(360px,0.95fr)]" : "grid-cols-1"}`}>
               <div
-                className="min-h-0 space-y-4 overflow-y-auto border-r border-slate-200 p-5"
+                className="space-y-4 border-r border-slate-200 p-5"
                 onMouseDown={(e) => {
                     const target = e.target as HTMLElement;
                     if (target.closest('[data-editor-block="true"]')) return;
@@ -656,9 +633,32 @@ export function CreateQuestionPage() {
                 </div>
 
                 {isPreviewMode ? (
-                  <aside className="min-h-0 space-y-4 overflow-y-auto p-5">
+                  <aside className="space-y-4 p-5">
                     <EditorCard title="Question metadata">
                       <div className="grid gap-4 sm:grid-cols-2">
+                        {needsLoPicker ? (
+                          <label className="text-xs font-semibold text-slate-800 sm:col-span-2">
+                            Learning Objective <span className="text-rose-500">*</span>
+                            <Select
+                              value={hierarchy?.loid ?? ""}
+                              onChange={(e) => {
+                                const loid = e.target.value;
+                                const loName = loOptions.find((lo) => lo.loid === loid)?.lo_name ?? "";
+                                setHierarchy((c) => (c ? { ...c, loid: loid || undefined, loName: loid ? loName : undefined } : c));
+                              }}
+                              className="mt-2"
+                            >
+                              <option value="" disabled>
+                                {loOptions.length ? "Select a learning objective…" : "No learning objectives for this unit"}
+                              </option>
+                              {loOptions.map((lo) => (
+                                <option key={lo.loid} value={lo.loid}>
+                                  {lo.lo_name}
+                                </option>
+                              ))}
+                            </Select>
+                          </label>
+                        ) : null}
                         <label className="text-xs font-semibold text-slate-800">
                           Difficulty <span className="text-rose-500">*</span>
                           <Select value={difficulty} onChange={(e) => setDifficulty(e.target.value)} className="mt-2">
