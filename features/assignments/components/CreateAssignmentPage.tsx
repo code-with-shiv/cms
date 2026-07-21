@@ -149,6 +149,7 @@ export function CreateAssignmentPage() {
     if ((form.level === "topic" || form.level === "lu") && !scope.topic_id) return "Topic is required for this level.";
     if (form.level === "lu" && !scope.luid) return "Learning unit is required for this level.";
     if (!form.creator_email) return "Creator is required.";
+    if (!form.reviewer_email) return "Reviewer is required.";
     return null;
   }
 
@@ -336,13 +337,15 @@ export function CreateAssignmentPage() {
                   </Select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">Reviewer</label>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">
+                    Reviewer <span className="text-red-500">*</span>
+                  </label>
                   <Select
                     value={form.reviewer_email}
                     onChange={(e) => update("reviewer_email", e.target.value)}
                     disabled={isLoadingOptions}
                   >
-                    <option value="">— None —</option>
+                    <option value="">{isLoadingOptions ? "Loading…" : "Select reviewer…"}</option>
                     {reviewers.map((r) => (
                       <option key={r.email} value={r.email}>
                         {r.email} ({r.name})
