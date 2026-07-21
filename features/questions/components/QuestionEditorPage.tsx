@@ -25,6 +25,7 @@ import { getTemplateSchema } from "@/features/questions/services/template-schema
 import {
   deleteQuestion,
   getQuestionByQid,
+  reviewQuestion,
   updateQuestion,
 } from "@/features/questions/services/questions.service";
 import { getApiErrorMessage } from "@/utils/api-error";
@@ -208,6 +209,9 @@ function LoadedQuestionEditor({
   // Backend now flips status straight to pending_review on any creator save (no separate
   // submit step) — the label just reflects that when there's a meaningful transition to make.
   const saveSubmits = role === "creator" && (status === "draft" || status === "re_edit");
+  // Reviewer editing a pending_review question: saving also accepts it, landing
+  // the question in accepted_with_changes (backend keys off reviewer_edited).
+  const reviewerSubmitsEdit = role === "reviewer" && status === "pending_review";
   const hasMarksData = schema.test_based;
   const totalMarks = hasDisplayValue(doc.total_marks) ? String(doc.total_marks) : (schema.total_marks ?? null);
 
@@ -343,6 +347,19 @@ function LoadedQuestionEditor({
         updated_at: new Date().toISOString(),
         content_only: true,
       });
+      if (reviewerSubmitsEdit) {
+        // Save first (sets reviewer_edited=True), then accept → accepted_with_changes.
+        await reviewQuestion({
+          template_id: templateId,
+          qid,
+          action: "accept",
+          reviewed_by: userEmail,
+          reviewed_at: new Date().toISOString(),
+        });
+        setStatus("accepted_with_changes");
+        router.push(backUrl);
+        return true;
+      }
       if (role === "creator") {
         setStatus("pending_review");
         setNotice(saveSubmits ? "Question saved and submitted for review." : "Question saved.");
@@ -426,7 +443,16 @@ function LoadedQuestionEditor({
               disabled={isSaving}
               className="inline-flex h-9 items-center gap-2 rounded-lg bg-indigo-600 px-4 text-xs font-semibold text-white hover:bg-indigo-500 disabled:opacity-60"
             >
-              <LuSave /> {isSaving ? "Saving…" : saveSubmits ? "Save & Submit for Review" : "Save"}
+              <LuSave />{" "}
+              {isSaving
+                ? reviewerSubmitsEdit
+                  ? "Submitting…"
+                  : "Saving…"
+                : reviewerSubmitsEdit
+                  ? "Submit with Edits"
+                  : saveSubmits
+                    ? "Save & Submit for Review"
+                    : "Save"}
             </button>
           </div>
         </div>

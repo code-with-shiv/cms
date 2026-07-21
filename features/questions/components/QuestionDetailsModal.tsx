@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { LuBookOpen, LuCheck, LuCopy, LuLightbulb, LuMessageSquare, LuRefreshCw, LuTag, LuX } from "react-icons/lu";
+import { LuBookOpen, LuCheck, LuCopy, LuLightbulb, LuMessageSquare, LuPencil, LuRefreshCw, LuTag, LuX } from "react-icons/lu";
 import { RenderInline } from "@/features/questions/components/RenderInline";
 import { contentBlocksToText } from "@/features/questions/utils/content-blocks";
 import type { QuestionDocument, ReviewAction } from "@/types/question";
@@ -76,10 +76,11 @@ interface QuestionDetailsModalProps {
   // When provided, review action buttons render in the footer. `escapeDisabled`
   // suppresses this modal's Escape-to-close while a stacked action modal is open.
   onReview?: (action: ReviewAction) => void;
+  onEdit?: () => void;
   escapeDisabled?: boolean;
 }
 
-export function QuestionDetailsModal({ question, onClose, onReview, escapeDisabled = false }: QuestionDetailsModalProps) {
+export function QuestionDetailsModal({ question, onClose, onReview, onEdit, escapeDisabled = false }: QuestionDetailsModalProps) {
   const [showAllDr, setShowAllDr] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const isClosingRef = useRef(false);
@@ -361,29 +362,42 @@ export function QuestionDetailsModal({ question, onClose, onReview, escapeDisabl
 
         <footer className="flex items-center justify-between gap-3 border-t border-slate-200 bg-white px-6 py-3">
           <span className="text-[11px] text-slate-500">Question ID: Q-{qid}</span>
-          {onReview ? (
+          {onReview || onEdit ? (
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => onReview("accept")}
-                className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500"
-              >
-                <LuCheck className="h-3.5 w-3.5" /> Accept
-              </button>
-              <button
-                type="button"
-                onClick={() => onReview("re_edit")}
-                className="inline-flex items-center gap-1.5 rounded-md bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-400"
-              >
-                <LuRefreshCw className="h-3.5 w-3.5" /> Re-edit
-              </button>
-              <button
-                type="button"
-                onClick={() => onReview("reject")}
-                className="inline-flex items-center gap-1.5 rounded-md bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-500"
-              >
-                <LuX className="h-3.5 w-3.5" /> Reject
-              </button>
+              {onEdit ? (
+                <button
+                  type="button"
+                  onClick={onEdit}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  <LuPencil className="h-3.5 w-3.5" /> Edit
+                </button>
+              ) : null}
+              {onReview ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => onReview("accept")}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500"
+                  >
+                    <LuCheck className="h-3.5 w-3.5" /> Accept
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onReview("re_edit")}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-400"
+                  >
+                    <LuRefreshCw className="h-3.5 w-3.5" /> Re-edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onReview("reject")}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-500"
+                  >
+                    <LuX className="h-3.5 w-3.5" /> Reject
+                  </button>
+                </>
+              ) : null}
             </div>
           ) : null}
         </footer>

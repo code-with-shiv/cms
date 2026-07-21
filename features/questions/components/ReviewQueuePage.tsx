@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { AppShell } from "@/components/common/AppShell";
 import { QuestionScopePicker, type QuestionScope } from "@/features/questions/components/QuestionScopePicker";
@@ -13,6 +14,7 @@ import { getApiErrorMessage } from "@/utils/api-error";
 import type { QuestionDocument, ReviewAction } from "@/types/question";
 
 export function ReviewQueuePage() {
+  const router = useRouter();
   const { user, isLoading: isAuthLoading } = useAuth();
   const [scope, setScope] = useState<QuestionScope | null>(null);
   const [questions, setQuestions] = useState<QuestionDocument[]>([]);
@@ -57,6 +59,12 @@ export function ReviewQueuePage() {
     } finally {
       setLoadingQid(null);
     }
+  }
+
+  function handleEdit(doc: QuestionDocument) {
+    if (!scope) return;
+    sessionStorage.setItem("prev-ques-url", "/questions/review");
+    router.push(`/questions/${doc.qid}/edit?template_id=${encodeURIComponent(scope.templateId)}`);
   }
 
   async function handleConfirmReview(comment?: string) {
@@ -181,6 +189,7 @@ export function ReviewQueuePage() {
           question={viewing}
           onClose={() => setViewing(null)}
           onReview={(action) => setPendingAction({ doc: viewing, action })}
+          onEdit={() => handleEdit(viewing)}
           escapeDisabled={Boolean(pendingAction)}
         />
       ) : null}
