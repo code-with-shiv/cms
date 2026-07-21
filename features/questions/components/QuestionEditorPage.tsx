@@ -231,7 +231,6 @@ function LoadedQuestionEditor({
 
   const checklist = useMemo(
     () => [
-      { label: "Question text (20+ chars)", complete: questionText.trim().length >= 20 },
       {
         label: form.options.length ? `All ${form.options.length} options filled` : "Solution provided",
         complete: form.options.length
