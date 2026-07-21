@@ -16,7 +16,7 @@ import {
   summarize,
   type UserBreakdownRow,
 } from "@/features/assignments/utils/assignment-stats";
-import { getRecentActivity } from "@/features/questions/services/questions.service";
+import { getQuestions, getRecentActivity } from "@/features/questions/services/questions.service";
 import { getApiErrorMessage } from "@/utils/api-error";
 import type { Assignment, AssignmentLevel } from "@/types/assignment";
 import type { RecentActivityEntry } from "@/types/question";
@@ -29,6 +29,13 @@ const CHANGE_TYPE_META: Record<string, { label: string; icon: IconType; tone: st
   review_re_edit: { label: "Sent for re-edit", icon: LuRefreshCw, tone: "bg-amber-50 text-amber-600" },
   review_rejected: { label: "Rejected", icon: LuX, tone: "bg-rose-50 text-rose-600" },
 };
+
+// The scope value get_questions_by_level_filter expects for an assignment's level.
+function scopeFilterValue(a: Assignment): string | number {
+  if (a.level === "lu") return a.assignment_json.luid ?? "";
+  if (a.level === "topic") return a.assignment_json.topic_id ?? "";
+  return a.assignment_json.chapter_id;
+}
 
 interface StatTile {
   label: string;
@@ -95,11 +102,13 @@ export function AssignmentsDashboardPage() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [activity, setActivity] = useState<RecentActivityEntry[]>([]);
+  const [pendingReviewCount, setPendingReviewCount] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
   const isAdmin = user?.role === "admin" || user?.role === "superadmin";
   const isTier1 = user?.role === "creator" || user?.role === "reviewer";
+  const isReviewer = user?.role === "reviewer";
 
   useEffect(() => {
     if (!isAdmin && !isTier1) return;
@@ -114,10 +123,32 @@ export function AssignmentsDashboardPage() {
           getTemplates().catch(() => []),
           getRecentActivity().catch(() => []),
         ]);
-        if (!cancelled) {
-          setAssignments(assignmentData);
-          setTemplates(templateData);
-          setActivity(activityData);
+        if (cancelled) return;
+        setAssignments(assignmentData);
+        setTemplates(templateData);
+        setActivity(activityData);
+
+        if (isReviewer) {
+          // "Pending Your Review" — count of pending_review questions across every
+          // scope this reviewer is actively assigned to (Recent Activity can't show
+          // this: submissions are logged under the creator's email, not the reviewer's).
+          const scopes = new Map<string, { template_id: string; filterValue: string | number }>();
+          for (const a of assignmentData) {
+            if (a.status !== "active") continue;
+            const filterValue = scopeFilterValue(a);
+            if (!filterValue) continue;
+            scopes.set(`${a.template_id}|${a.level}|${filterValue}`, { template_id: a.template_id, filterValue });
+          }
+          const counts = await Promise.all(
+            Array.from(scopes.values()).map((scope) =>
+              getQuestions({ template_id: scope.template_id, filter_value: scope.filterValue, status_filter: ["pending_review"] })
+                .then((qs) => qs.length)
+                .catch(() => 0),
+            ),
+          );
+          if (!cancelled) setPendingReviewCount(counts.reduce((sum, c) => sum + c, 0));
+        } else {
+          setPendingReviewCount(null);
         }
       } catch (err) {
         if (!cancelled) setError(getApiErrorMessage(err, "Could not load assignment data."));
@@ -130,7 +161,7 @@ export function AssignmentsDashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [isAdmin, isTier1]);
+  }, [isAdmin, isTier1, isReviewer]);
 
   const summary = useMemo(() => summarize(assignments), [assignments]);
   const levelCounts = useMemo(() => countByLevel(assignments), [assignments]);
@@ -143,6 +174,9 @@ export function AssignmentsDashboardPage() {
   }
 
   const statTiles: StatTile[] = [
+    ...(isReviewer
+      ? [{ label: "Pending Your Review", value: pendingReviewCount ?? 0, hint: "Awaiting action in your scopes", color: "text-rose-700" }]
+      : []),
     { label: "Total", value: summary.total, hint: isAdmin ? "All assignments" : "Assigned to you", color: "text-slate-900" },
     { label: "Active", value: summary.counts.active, hint: "In progress", color: "text-indigo-700" },
     { label: "Completed", value: summary.counts.completed, hint: "Marked done", color: "text-emerald-700" },
