@@ -1,27 +1,34 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { LuActivity, LuCircleCheckBig, LuRefreshCw, LuTriangleAlert } from "react-icons/lu";
+import type { IconType } from "react-icons";
+import { LuCircleCheckBig, LuPencil, LuRefreshCw, LuSend, LuTriangleAlert, LuX } from "react-icons/lu";
 import { AppShell } from "@/components/common/AppShell";
 import { useAuth } from "@/context/AuthContext";
 import { getAllAssignments, getMyAssignments } from "@/features/assignments/services/assignments.service";
 import { getTemplates } from "@/features/templates/services/templates.service";
-import { StatusBadge } from "@/features/assignments/components/StatusBadge";
 import { ASSIGNMENT_LEVEL_LABEL } from "@/features/assignments/utils/level-compat";
 import {
   countByCreator,
   countByLevel,
   countByReviewer,
   countByTemplate,
-  recentActivity,
-  scopeName,
   summarize,
   type UserBreakdownRow,
 } from "@/features/assignments/utils/assignment-stats";
+import { getRecentActivity } from "@/features/questions/services/questions.service";
 import { getApiErrorMessage } from "@/utils/api-error";
 import type { Assignment, AssignmentLevel } from "@/types/assignment";
+import type { RecentActivityEntry } from "@/types/question";
 import type { Template } from "@/types/template";
+
+const CHANGE_TYPE_META: Record<string, { label: string; icon: IconType; tone: string }> = {
+  submitted_for_review: { label: "Submitted for review", icon: LuSend, tone: "bg-violet-50 text-violet-600" },
+  updated: { label: "Edited", icon: LuPencil, tone: "bg-indigo-50 text-indigo-600" },
+  review_accepted: { label: "Accepted", icon: LuCircleCheckBig, tone: "bg-emerald-50 text-emerald-600" },
+  review_re_edit: { label: "Sent for re-edit", icon: LuRefreshCw, tone: "bg-amber-50 text-amber-600" },
+  review_rejected: { label: "Rejected", icon: LuX, tone: "bg-rose-50 text-rose-600" },
+};
 
 interface StatTile {
   label: string;
@@ -87,6 +94,7 @@ export function AssignmentsDashboardPage() {
   const { user, isLoading: isAuthLoading } = useAuth();
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
+  const [activity, setActivity] = useState<RecentActivityEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -101,13 +109,15 @@ export function AssignmentsDashboardPage() {
       setIsLoading(true);
       setError("");
       try {
-        const [assignmentData, templateData] = await Promise.all([
+        const [assignmentData, templateData, activityData] = await Promise.all([
           isAdmin ? getAllAssignments() : getMyAssignments(),
           getTemplates().catch(() => []),
+          getRecentActivity().catch(() => []),
         ]);
         if (!cancelled) {
           setAssignments(assignmentData);
           setTemplates(templateData);
+          setActivity(activityData);
         }
       } catch (err) {
         if (!cancelled) setError(getApiErrorMessage(err, "Could not load assignment data."));
@@ -127,7 +137,6 @@ export function AssignmentsDashboardPage() {
   const templateRows = useMemo(() => countByTemplate(assignments).slice(0, 5), [assignments]);
   const creatorRows = useMemo(() => (isAdmin ? countByCreator(assignments) : []), [assignments, isAdmin]);
   const reviewerRows = useMemo(() => (isAdmin ? countByReviewer(assignments) : []), [assignments, isAdmin]);
-  const activity = useMemo(() => recentActivity(assignments), [assignments]);
 
   function templateName(templateId: string): string {
     return templates.find((t) => t.template_id === templateId)?.template_name ?? templateId;
@@ -282,51 +291,44 @@ export function AssignmentsDashboardPage() {
             )}
 
             <div className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-              <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+              <div className="border-b border-slate-200 px-4 py-3">
                 <h2 className="text-sm font-bold text-slate-900">Recent Activity</h2>
-                <Link
-                  href={isAdmin ? "/assignments" : "/assignments/my"}
-                  className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
-                >
-                  View all →
-                </Link>
+                <p className="text-xs text-slate-500">
+                  {isAdmin ? "Latest question actions across every creator and reviewer." : "Your latest question actions."}
+                </p>
               </div>
               {activity.length === 0 ? (
                 <div className="px-5 py-10 text-center text-sm text-slate-500">No recent activity.</div>
               ) : (
                 <ul className="divide-y divide-slate-100">
-                  {activity.map((a) => (
-                    <li key={a.id} className="flex items-center gap-3 px-4 py-3">
-                      <span
-                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-                          a.status === "completed"
-                            ? "bg-emerald-50 text-emerald-600"
-                            : a.status === "reassigned"
-                              ? "bg-amber-50 text-amber-600"
-                              : "bg-indigo-50 text-indigo-600"
-                        }`}
-                      >
-                        {a.status === "completed" ? (
-                          <LuCircleCheckBig className="h-4 w-4" />
-                        ) : a.status === "reassigned" ? (
-                          <LuRefreshCw className="h-4 w-4" />
-                        ) : (
-                          <LuActivity className="h-4 w-4" />
-                        )}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-slate-900">{scopeName(a)}</p>
-                        <p className="truncate text-xs text-slate-500">
-                          {templateName(a.template_id)} · {ASSIGNMENT_LEVEL_LABEL[a.level]}
-                          {isAdmin ? ` · ${a.creator_email}` : ""}
-                        </p>
-                      </div>
-                      <div className="shrink-0 text-right">
-                        <StatusBadge status={a.status} />
-                        <p className="mt-1 text-xs text-slate-400">{formatRelativeDate(a.completed_at ?? a.assigned_at)}</p>
-                      </div>
-                    </li>
-                  ))}
+                  {activity.map((a) => {
+                    const meta = CHANGE_TYPE_META[a.change_type] ?? {
+                      label: a.change_type.replace(/_/g, " "),
+                      icon: LuPencil,
+                      tone: "bg-slate-100 text-slate-600",
+                    };
+                    const Icon = meta.icon;
+                    return (
+                      <li key={`${a.template_id}-${a.qid}-${a.changed_at}-${a.change_type}`} className="flex items-center gap-3 px-4 py-3">
+                        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${meta.tone}`}>
+                          <Icon className="h-4 w-4" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-slate-900">
+                            Q-{a.qid} · {templateName(a.template_id)}
+                          </p>
+                          <p className="truncate text-xs text-slate-500">
+                            {meta.label}
+                            {a.previous_status && a.new_status ? ` · ${a.previous_status} → ${a.new_status}` : ""}
+                            {isAdmin ? ` · ${a.changed_by}` : ""}
+                          </p>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className="text-xs text-slate-400">{formatRelativeDate(a.changed_at)}</p>
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </div>

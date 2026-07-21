@@ -24,7 +24,7 @@ import { Select } from "@/components/ui/Select";
 import { contentBlocksToText, insertBlockAbove, insertBlockBelow, removeBlockAt } from "@/features/questions/utils/content-blocks";
 import { getTemplateSchema } from "@/features/questions/services/template-schema.service";
 import { getLearningUnits } from "@/features/metadata/services/metadata.service";
-import { publishContent } from "@/features/questions/services/questions.service";
+import { publishContent, submitForReview as submitForReviewApi } from "@/features/questions/services/questions.service";
 import { getApiErrorMessage } from "@/utils/api-error";
 import type { ContentItem, OptionItem, TemplateSchema } from "@/types/question";
 import type { LearningObjectiveOption } from "@/types/metadata";
@@ -373,11 +373,26 @@ export function CreateQuestionPage() {
         email: user.email,
         question_type: schema.question_type,
         template_id: schema.template_id,
-        submit_for_review: submitForReview,
+        submit_for_review: false,
       });
       const qid = response.assigned_qids[0];
+      let finalStatus = response.status;
+
+      if (submitForReview && qid !== undefined) {
+        const result = await submitForReviewApi({
+          template_id: schema.template_id,
+          qids: [Number(qid)],
+          submitted_by: user.email,
+          submitted_at: new Date().toISOString(),
+        });
+        if (result.failed.length) {
+          throw new Error(result.failed[0]?.reason || "Could not submit for review.");
+        }
+        finalStatus = "pending_review";
+      }
+
       setLastCreatedQid(qid ?? null);
-      setNotice(`Question Q-${qid} created (${response.status.replace(/_/g, " ")}). Form reset — you can create another.`);
+      setNotice(`Question Q-${qid} created (${finalStatus.replace(/_/g, " ")}). Form reset — you can create another.`);
       resetContent(schema);
     } catch (err) {
       setError(getApiErrorMessage(err, "Could not create question."));

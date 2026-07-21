@@ -138,6 +138,18 @@ export interface DeleteQuestionPayload {
 }
 
 
+export interface SubmitForReviewPayload {
+  template_id: string;
+  qids: number[];
+  submitted_by: string;
+  submitted_at: string;
+}
+
+export interface SubmitForReviewResult {
+  success: number[];
+  failed: { qid: number; reason: string }[];
+}
+
 export type ReviewAction = "accept" | "re_edit" | "reject";
 
 export interface ReviewQuestionPayload {
@@ -165,4 +177,18 @@ export interface VersionHistory {
   template_id: string;
   collection_name: string;
   versions: VersionEntry[];
+}
+
+// One row from GET /questions/recent-activity — a single version-history entry,
+// flattened out of its parent (qid, template_id) document.
+export interface RecentActivityEntry {
+  qid: number;
+  template_id: string;
+  collection_name: string;
+  changed_by: string;
+  changed_at: string;
+  change_type: string;
+  role: string;
+  previous_status: QuestionStatus;
+  new_status: QuestionStatus;
 }

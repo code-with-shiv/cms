@@ -103,13 +103,3 @@ export function scopeName(a: Assignment): string {
   if (a.level === "topic") return a.assignment_json.topic_name || "—";
   return a.assignment_json.chapter_name || "—";
 }
-
-export function recentActivity(assignments: Assignment[], limit = 6): Assignment[] {
-  return [...assignments]
-    .sort((a, b) => {
-      const aTime = new Date(a.completed_at ?? a.assigned_at).getTime();
-      const bTime = new Date(b.completed_at ?? b.assigned_at).getTime();
-      return bTime - aTime;
-    })
-    .slice(0, limit);
-}

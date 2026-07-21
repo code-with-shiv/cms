@@ -25,7 +25,8 @@ export function QuestionsListPage() {
   const [deleteReason, setDeleteReason] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const canManage = user?.role === "admin" || user?.role === "superadmin";
+  const canEdit = user?.role === "creator" || user?.role === "admin" || user?.role === "superadmin";
+  const canDelete = user?.role === "admin" || user?.role === "superadmin";
 
   async function loadQuestions(nextScope: QuestionScope) {
     setScope(nextScope);
@@ -109,7 +110,8 @@ export function QuestionsListPage() {
               isLoading={isLoading}
               hasLoaded={hasLoaded}
               emptyMessage="No questions found in this scope."
-              canManage={canManage}
+              canEdit={canEdit}
+              canDelete={canDelete}
               onView={handleView}
               viewingQid={loadingQid}
               onEdit={handleEdit}

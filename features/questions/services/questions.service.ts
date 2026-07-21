@@ -4,9 +4,12 @@ import type {
   GetByQidPayload,
   GetQuestionsPayload,
   QuestionDocument,
+  RecentActivityEntry,
   ReviewQuestionPayload,
   SearchByLuidsPayload,
   SearchQuestionsPayload,
+  SubmitForReviewPayload,
+  SubmitForReviewResult,
   UpdateQuestionPayload,
   VersionHistory,
 } from "@/types/question";
@@ -46,9 +49,21 @@ export async function reviewQuestion(payload: ReviewQuestionPayload): Promise<vo
   await apiClient.post(`${BASE}/review`, payload);
 }
 
+export async function submitForReview(payload: SubmitForReviewPayload): Promise<SubmitForReviewResult> {
+  const { data } = await apiClient.post<SubmitForReviewResult>(`${BASE}/submit-for-review`, payload);
+  return data;
+}
+
 export async function getVersionHistory(qid: number, templateId: string): Promise<VersionHistory> {
   const { data } = await apiClient.get<{ data: VersionHistory }>(`${BASE}/version-history`, {
     params: { qid, template_id: templateId },
+  });
+  return data.data;
+}
+
+export async function getRecentActivity(limit = 10): Promise<RecentActivityEntry[]> {
+  const { data } = await apiClient.get<{ data: RecentActivityEntry[] }>(`${BASE}/recent-activity`, {
+    params: { limit },
   });
   return data.data;
 }

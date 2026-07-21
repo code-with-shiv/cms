@@ -44,7 +44,8 @@ export function QuestionSearchPage() {
   const [deleteReason, setDeleteReason] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const canManage = user?.role === "admin" || user?.role === "superadmin";
+  const canEdit = user?.role === "creator" || user?.role === "admin" || user?.role === "superadmin";
+  const canDelete = user?.role === "admin" || user?.role === "superadmin";
   const selectedMode = SEARCH_MODE_OPTIONS.find((option) => option.value === searchBy)!;
 
   useEffect(() => {
@@ -204,7 +205,8 @@ export function QuestionSearchPage() {
             isLoading={isLoading}
             hasLoaded={hasLoaded}
             emptyMessage="No questions matched the current search."
-            canManage={canManage}
+            canEdit={canEdit}
+            canDelete={canDelete}
             onView={setViewing}
             onEdit={handleEdit}
             onDelete={setDeleting}

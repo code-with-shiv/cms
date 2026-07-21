@@ -9,6 +9,7 @@ import {
   LuEyeOff,
   LuHistory,
   LuLightbulb,
+  LuMessageSquare,
   LuRefreshCw,
   LuSave,
   LuTrash2,
@@ -221,6 +222,11 @@ function LoadedQuestionEditor({
   const reviewerSubmitsEdit = role === "reviewer" && status === "pending_review";
   const hasMarksData = schema.test_based;
   const totalMarks = hasDisplayValue(doc.total_marks) ? String(doc.total_marks) : (schema.total_marks ?? null);
+  const reviewComment = hasDisplayValue(doc.review_comment)
+    ? String(doc.review_comment)
+    : hasDisplayValue(doc.comment)
+      ? String(doc.comment)
+      : "";
 
   const questionText = contentBlocksToText(form.question);
   const questionHtml = contentBlocksToHtml(form.question);
@@ -533,6 +539,22 @@ function LoadedQuestionEditor({
               >
                 Cancel
               </button>
+            </div>
+          </div>
+        ) : null}
+
+        {reviewComment ? (
+          <div className="flex items-start gap-2.5 border-b border-amber-200 bg-amber-50 px-5 py-3">
+            <LuMessageSquare className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-700" />
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-amber-700">Review comment</p>
+              <p className="mt-0.5 whitespace-pre-wrap text-xs text-amber-900">{reviewComment}</p>
+              {hasDisplayValue(doc.reviewed_by) || hasDisplayValue(doc.reviewed_at) ? (
+                <p className="mt-1 text-[11px] text-amber-700">
+                  {hasDisplayValue(doc.reviewed_by) ? String(doc.reviewed_by) : "—"}
+                  {hasDisplayValue(doc.reviewed_at) ? ` · ${String(doc.reviewed_at)}` : ""}
+                </p>
+              ) : null}
             </div>
           </div>
         ) : null}
