@@ -602,7 +602,9 @@ export function CreateQuestionPage() {
                       <label className="text-xs font-semibold text-slate-800">
                         Difficulty <span className="text-rose-500">*</span>
                         <Select value={difficulty} onChange={(e) => setDifficulty(e.target.value)} className="mt-2">
-                          <option value="">Select difficulty…</option>
+                          <option value="" disabled>
+                            Select difficulty…
+                          </option>
                           {DIFFICULTY_OPTIONS.map((d) => (
                             <option key={d} value={d}>
                               {d[0].toUpperCase() + d.slice(1)}
@@ -615,7 +617,9 @@ export function CreateQuestionPage() {
                         <label className="text-xs font-semibold text-slate-800">
                           Question format <span className="text-rose-500">*</span>
                           <Select value={questionFormat} onChange={(e) => setQuestionFormat(e.target.value)} className="mt-2">
-                            <option value="">Select format…</option>
+                            <option value="" disabled>
+                              Select format…
+                            </option>
                             {schema.allowed_question_format.map((f) => (
                               <option key={f} value={f}>
                                 {f}
