@@ -9,6 +9,7 @@ import {
   LuEyeOff,
   LuHistory,
   LuLightbulb,
+  LuRefreshCw,
   LuSave,
   LuTrash2,
   LuUser,
@@ -18,6 +19,7 @@ import { useAuth } from "@/context/AuthContext";
 import { AppShell } from "@/components/common/AppShell";
 import { RenderInline } from "@/features/questions/components/RenderInline";
 import { VersionHistoryModal } from "@/features/questions/components/VersionHistoryModal";
+import { ReviewActionModal } from "@/features/questions/components/ReviewActionModal";
 import { QuestionBlockEditor } from "@/features/questions/components/blocks/QuestionBlockEditor";
 import { contentBlocksToHtml, contentBlocksToText, insertBlockAbove, insertBlockBelow, removeBlockAt } from "@/features/questions/utils/content-blocks";
 import { toQuestionView } from "@/features/questions/utils/question-kind";
@@ -29,7 +31,7 @@ import {
   updateQuestion,
 } from "@/features/questions/services/questions.service";
 import { getApiErrorMessage } from "@/utils/api-error";
-import type { ContentItem, OptionItem, QuestionDocument, TemplateSchema } from "@/types/question";
+import type { ContentItem, OptionItem, QuestionDocument, ReviewAction, TemplateSchema } from "@/types/question";
 
 interface EditorOption {
   option: ContentItem[];
@@ -204,8 +206,13 @@ function LoadedQuestionEditor({
   const [notice, setNotice] = useState("");
   const [showHistory, setShowHistory] = useState(false);
   const [activeBlockKey, setActiveBlockKey] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<ReviewAction | null>(null);
+  const [isReviewSubmitting, setIsReviewSubmitting] = useState(false);
 
-  const canDelete = role === "reviewer" || role === "admin" || role === "superadmin";
+  // Reviewers act on pending_review questions via Accept/Re-edit/Reject (same as
+  // the review queue popup); Delete stays an admin-only action.
+  const canReview = (role === "reviewer" || role === "admin" || role === "superadmin") && status === "pending_review";
+  const canDelete = (role === "admin" || role === "superadmin") && !canReview;
   // Backend now flips status straight to pending_review on any creator save (no separate
   // submit step) — the label just reflects that when there's a meaningful transition to make.
   const saveSubmits = role === "creator" && (status === "draft" || status === "re_edit");
@@ -391,6 +398,26 @@ function LoadedQuestionEditor({
     }
   }
 
+  async function handleConfirmReview(comment?: string) {
+    if (!pendingAction) return;
+    setIsReviewSubmitting(true);
+    setError("");
+    try {
+      await reviewQuestion({
+        template_id: templateId,
+        qid,
+        action: pendingAction,
+        comment,
+        reviewed_by: userEmail,
+        reviewed_at: new Date().toISOString(),
+      });
+      router.push(backUrl);
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Could not submit review."));
+      setIsReviewSubmitting(false);
+    }
+  }
+
   return (
     <AppShell title="edit-question">
       <section className="flex h-[calc(100vh-64px)] flex-col overflow-hidden bg-slate-100">
@@ -428,6 +455,31 @@ function LoadedQuestionEditor({
             >
               <LuHistory /> History
             </button>
+            {canReview ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setPendingAction("accept")}
+                  className="inline-flex h-9 items-center gap-2 rounded-lg bg-emerald-600 px-4 text-xs font-semibold text-white hover:bg-emerald-500"
+                >
+                  <LuCheck /> Accept
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPendingAction("re_edit")}
+                  className="inline-flex h-9 items-center gap-2 rounded-lg bg-amber-500 px-4 text-xs font-semibold text-white hover:bg-amber-400"
+                >
+                  <LuRefreshCw /> Re-edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPendingAction("reject")}
+                  className="inline-flex h-9 items-center gap-2 rounded-lg bg-rose-600 px-4 text-xs font-semibold text-white hover:bg-rose-500"
+                >
+                  <LuX /> Reject
+                </button>
+              </>
+            ) : null}
             {canDelete ? (
               <button
                 type="button"
@@ -716,6 +768,15 @@ function LoadedQuestionEditor({
 
       {showHistory ? (
         <VersionHistoryModal qid={qid} templateId={templateId} onClose={() => setShowHistory(false)} />
+      ) : null}
+      {pendingAction ? (
+        <ReviewActionModal
+          question={doc}
+          action={pendingAction}
+          isSubmitting={isReviewSubmitting}
+          onConfirm={handleConfirmReview}
+          onClose={() => setPendingAction(null)}
+        />
       ) : null}
     </AppShell>
   );

@@ -56,7 +56,8 @@ interface QuestionResultsTableProps {
   isLoading: boolean;
   hasLoaded: boolean;
   emptyMessage: string;
-  canDelete: boolean;
+  // Edit + delete are management actions, shown only to admin/superadmin.
+  canManage: boolean;
   onView: (doc: QuestionDocument) => void;
   viewingQid?: number | null;
   onEdit: (doc: QuestionDocument) => void;
@@ -68,7 +69,7 @@ export function QuestionResultsTable({
   isLoading,
   hasLoaded,
   emptyMessage,
-  canDelete,
+  canManage,
   onView,
   viewingQid,
   onEdit,
@@ -286,13 +287,15 @@ export function QuestionResultsTable({
                             <LuEye className="h-4 w-4" />
                           )}
                         </button>
-                        <button type="button" onClick={() => onEdit(row.document)} aria-label={`Edit ${row.id}`} className="hover:text-indigo-600">
-                          <LuPencil className="h-4 w-4" />
-                        </button>
-                        {canDelete ? (
-                          <button type="button" onClick={() => onDelete(row.document)} aria-label={`Delete ${row.id}`} className="hover:text-rose-600">
-                            <LuTrash2 className="h-4 w-4" />
-                          </button>
+                        {canManage ? (
+                          <>
+                            <button type="button" onClick={() => onEdit(row.document)} aria-label={`Edit ${row.id}`} className="hover:text-indigo-600">
+                              <LuPencil className="h-4 w-4" />
+                            </button>
+                            <button type="button" onClick={() => onDelete(row.document)} aria-label={`Delete ${row.id}`} className="hover:text-rose-600">
+                              <LuTrash2 className="h-4 w-4" />
+                            </button>
+                          </>
                         ) : null}
                       </div>
                     </td>

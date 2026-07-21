@@ -139,8 +139,8 @@ export function ReviewQueuePage() {
                       <tr>
                         <th className="px-3 py-2.5">ID</th>
                         <th className="px-3 py-2.5">Question</th>
-                        <th className="px-3 py-2.5">Submitted By</th>
-                        <th className="px-3 py-2.5">Submitted At</th>
+                        {/* <th className="px-3 py-2.5">Submitted By</th>
+                        <th className="px-3 py-2.5">Submitted At</th> */}
                         <th className="px-3 py-2.5">Actions</th>
                       </tr>
                     </thead>
@@ -161,8 +161,8 @@ export function ReviewQueuePage() {
                               />
                             </div>
                           </td>
-                          <td className="px-3 py-2.5 align-top text-xs text-slate-600">{String(q.submitted_by ?? "—")}</td>
-                          <td className="px-3 py-2.5 align-top text-xs text-slate-600">{String(q.submitted_at ?? "—")}</td>
+                          {/* <td className="px-3 py-2.5 align-top text-xs text-slate-600">{String(q.submitted_by ?? "—")}</td>
+                          <td className="px-3 py-2.5 align-top text-xs text-slate-600">{String(q.submitted_at ?? "—")}</td> */}
                           <td className="px-3 py-2.5 align-top">
                             <button
                               type="button"
