@@ -23,9 +23,11 @@ import { AssignmentScopeCards } from "@/features/assignments/components/Assignme
 import { Select } from "@/components/ui/Select";
 import { contentBlocksToText, insertBlockAbove, insertBlockBelow, removeBlockAt } from "@/features/questions/utils/content-blocks";
 import { getTemplateSchema } from "@/features/questions/services/template-schema.service";
+import { getLearningUnits } from "@/features/metadata/services/metadata.service";
 import { publishContent } from "@/features/questions/services/questions.service";
 import { getApiErrorMessage } from "@/utils/api-error";
 import type { ContentItem, OptionItem, TemplateSchema } from "@/types/question";
+import type { LearningObjectiveOption } from "@/types/metadata";
 import type { IngestionQuestion } from "@/types/ingestion";
 import type { Assignment } from "@/types/assignment";
 import type { Template } from "@/types/template";
@@ -119,8 +121,14 @@ export function CreateQuestionPage() {
   const [notice, setNotice] = useState("");
   const [lastCreatedQid, setLastCreatedQid] = useState<number | string | null>(null);
   const [activeBlockKey, setActiveBlockKey] = useState<string | null>(null);
+  const [loOptions, setLoOptions] = useState<LearningObjectiveOption[]>([]);
 
   const templateId = hierarchy?.template.template_id ?? "";
+  const isCreator = user?.role === "creator";
+  // Assignments only pin the LU (luid); an LU-level template still mandates a
+  // per-question LO. HierarchyPicker (non-creator path) captures the LO itself,
+  // so only creators authoring from an assignment need to pick it here.
+  const needsLoPicker = isCreator && schema?.level === "lu" && Boolean(hierarchy?.luid);
 
   useEffect(() => {
     if (!templateId) {
@@ -144,6 +152,26 @@ export function CreateQuestionPage() {
       cancelled = true;
     };
   }, [templateId]);
+
+  useEffect(() => {
+    if (!needsLoPicker || !hierarchy?.topicId || !hierarchy?.luid) {
+      setLoOptions([]);
+      return;
+    }
+    let cancelled = false;
+    getLearningUnits(hierarchy.topicId)
+      .then((units) => {
+        if (cancelled) return;
+        const lu = units.find((u) => u.luid === hierarchy.luid);
+        setLoOptions(lu?.lo ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setLoOptions([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [needsLoPicker, hierarchy?.topicId, hierarchy?.luid]);
 
   function resetContent(nextSchema: TemplateSchema) {
     setForm(buildBlankState(nextSchema));
@@ -189,9 +217,10 @@ export function CreateQuestionPage() {
       }
     }
     if (schema.allowed_question_format.length && !questionFormat) errors.push("Question format is required.");
+    if (needsLoPicker && !hierarchy?.loid) errors.push("Learning objective is required for this template.");
     if (isClone && !cloneOfQid.trim()) errors.push("Clone-of QID is required when marked as a clone.");
     return errors;
-  }, [schema, form, questionText, solutionText, difficulty, year, totalMarks, solutionMarksTotal, questionFormat, isClone, cloneOfQid]);
+  }, [schema, form, questionText, solutionText, difficulty, year, totalMarks, solutionMarksTotal, questionFormat, needsLoPicker, hierarchy?.loid, isClone, cloneOfQid]);
 
   function toggleDr(optionIndex: number) {
     setForm((c) => {
@@ -378,11 +407,10 @@ export function CreateQuestionPage() {
 
   const canSubmitForReview = user.role === "creator";
   const isReady = Boolean(schema && form);
-  const isCreator = user.role === "creator";
 
   return (
     <AppShell title="create-question">
-      <section className="flex min-h-[calc(100vh-64px)] flex-col bg-slate-100">
+      <section className="flex h-[calc(100vh-64px)] flex-col overflow-hidden bg-slate-100">
         <div className="sticky top-0 z-10 flex flex-col gap-3 border-b border-slate-200 bg-white px-5 py-2.5 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-wrap items-center gap-2 text-xs">
             {hierarchy ? (
@@ -450,6 +478,29 @@ export function CreateQuestionPage() {
             ) : (
               <HierarchyPicker onChange={setHierarchy} />
             )}
+            {needsLoPicker ? (
+              <label className="mt-3 block text-xs font-semibold text-slate-800">
+                Learning Objective <span className="text-rose-500">*</span>
+                <Select
+                  value={hierarchy?.loid ?? ""}
+                  onChange={(e) => {
+                    const loid = e.target.value;
+                    const loName = loOptions.find((lo) => lo.loid === loid)?.lo_name ?? "";
+                    setHierarchy((c) => (c ? { ...c, loid: loid || undefined, loName: loid ? loName : undefined } : c));
+                  }}
+                  className="mt-2"
+                >
+                  <option value="" disabled>
+                    {loOptions.length ? "Select a learning objective…" : "No learning objectives for this unit"}
+                  </option>
+                  {loOptions.map((lo) => (
+                    <option key={lo.loid} value={lo.loid}>
+                      {lo.lo_name}
+                    </option>
+                  ))}
+                </Select>
+              </label>
+            ) : null}
             {isSchemaLoading ? <p className="mt-2 text-xs text-slate-500">Loading template schema…</p> : null}
             {schemaError ? <p className="mt-2 text-xs text-rose-600">{schemaError}</p> : null}
           </EditorCard>
@@ -461,26 +512,27 @@ export function CreateQuestionPage() {
                 : "Select a full board / grade / subject / chapter path above to start authoring a question."}
             </div>
           ) : null}
+        </div>
 
-          {isReady && schema && form && hierarchy ? (
-            <>
-              {validationErrors.length ? (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
-                  <div className="mb-1 flex items-center gap-1.5 font-bold">
-                    <LuTriangleAlert /> Complete the following before saving
-                  </div>
-                  <ul className="list-inside list-disc space-y-0.5">
-                    {validationErrors.map((e) => (
-                      <li key={e}>{e}</li>
-                    ))}
-                  </ul>
+        {isReady && schema && form && hierarchy ? (
+          <div className="flex min-h-0 flex-1 flex-col">
+            {validationErrors.length ? (
+              <div className="mx-5 mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+                <div className="mb-1 flex items-center gap-1.5 font-bold">
+                  <LuTriangleAlert /> Complete the following before saving
                 </div>
-              ) : null}
+                <ul className="list-inside list-disc space-y-0.5">
+                  {validationErrors.map((e) => (
+                    <li key={e}>{e}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
 
-              <div className={`grid gap-4 ${isPreviewMode ? "xl:grid-cols-[minmax(0,1.55fr)_minmax(360px,0.95fr)]" : "grid-cols-1"}`}>
-                <div
-                  className="space-y-4"
-                  onMouseDown={(e) => {
+            <div className={`grid min-h-0 flex-1 ${isPreviewMode ? "xl:grid-cols-[minmax(0,1.55fr)_minmax(360px,0.95fr)]" : "grid-cols-1"}`}>
+              <div
+                className="min-h-0 space-y-4 overflow-y-auto border-r border-slate-200 p-5"
+                onMouseDown={(e) => {
                     const target = e.target as HTMLElement;
                     if (target.closest('[data-editor-block="true"]')) return;
                     if (target.closest(".fixed")) return;
@@ -601,90 +653,91 @@ export function CreateQuestionPage() {
                     </EditorCard>
                   ) : null}
 
-                  <EditorCard title="Question metadata">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <label className="text-xs font-semibold text-slate-800">
-                        Difficulty <span className="text-rose-500">*</span>
-                        <Select value={difficulty} onChange={(e) => setDifficulty(e.target.value)} className="mt-2">
-                          <option value="" disabled>
-                            Select difficulty…
-                          </option>
-                          {DIFFICULTY_OPTIONS.map((d) => (
-                            <option key={d} value={d}>
-                              {d[0].toUpperCase() + d.slice(1)}
-                            </option>
-                          ))}
-                        </Select>
-                      </label>
+                </div>
 
-                      {schema.allowed_question_format.length ? (
+                {isPreviewMode ? (
+                  <aside className="min-h-0 space-y-4 overflow-y-auto p-5">
+                    <EditorCard title="Question metadata">
+                      <div className="grid gap-4 sm:grid-cols-2">
                         <label className="text-xs font-semibold text-slate-800">
-                          Question format <span className="text-rose-500">*</span>
-                          <Select value={questionFormat} onChange={(e) => setQuestionFormat(e.target.value)} className="mt-2">
+                          Difficulty <span className="text-rose-500">*</span>
+                          <Select value={difficulty} onChange={(e) => setDifficulty(e.target.value)} className="mt-2">
                             <option value="" disabled>
-                              Select format…
+                              Select difficulty…
                             </option>
-                            {schema.allowed_question_format.map((f) => (
-                              <option key={f} value={f}>
-                                {f}
+                            {DIFFICULTY_OPTIONS.map((d) => (
+                              <option key={d} value={d}>
+                                {d[0].toUpperCase() + d.slice(1)}
                               </option>
                             ))}
                           </Select>
                         </label>
-                      ) : null}
 
-                      {schema.test_based ? (
-                        <label className="text-xs font-semibold text-slate-800">
-                          Total marks <span className="text-rose-500">*</span>
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.5"
-                            value={totalMarks}
-                            onChange={(e) => setTotalMarks(e.target.value)}
-                            className="mt-2 h-9 w-full rounded-lg border border-slate-300 px-3 text-sm text-slate-900 outline-none focus:border-indigo-500"
-                          />
-                        </label>
-                      ) : null}
+                        {schema.allowed_question_format.length ? (
+                          <label className="text-xs font-semibold text-slate-800">
+                            Question format <span className="text-rose-500">*</span>
+                            <Select value={questionFormat} onChange={(e) => setQuestionFormat(e.target.value)} className="mt-2">
+                              <option value="" disabled>
+                                Select format…
+                              </option>
+                              {schema.allowed_question_format.map((f) => (
+                                <option key={f} value={f}>
+                                  {f}
+                                </option>
+                              ))}
+                            </Select>
+                          </label>
+                        ) : null}
 
-                      {schema.requires_year ? (
-                        <label className="text-xs font-semibold text-slate-800">
-                          Year <span className="text-rose-500">*</span>
-                          <input
-                            value={year}
-                            onChange={(e) => setYear(e.target.value)}
-                            className="mt-2 h-9 w-full rounded-lg border border-slate-300 px-3 text-sm text-slate-900 outline-none focus:border-indigo-500"
-                          />
-                        </label>
-                      ) : null}
-                    </div>
+                        {schema.test_based ? (
+                          <label className="text-xs font-semibold text-slate-800">
+                            Total marks <span className="text-rose-500">*</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.5"
+                              value={totalMarks}
+                              onChange={(e) => setTotalMarks(e.target.value)}
+                              className="mt-2 h-9 w-full rounded-lg border border-slate-300 px-3 text-sm text-slate-900 outline-none focus:border-indigo-500"
+                            />
+                          </label>
+                        ) : null}
 
-                    {schema.can_have_clone ? (
-                      <div className="mt-4 border-t border-slate-100 pt-4">
-                        <label className="flex items-center gap-2 text-xs font-semibold text-slate-800">
-                          <input
-                            type="checkbox"
-                            checked={isClone}
-                            onChange={(e) => setIsClone(e.target.checked)}
-                            className="h-4 w-4 rounded accent-indigo-600"
-                          />
-                          This question is a clone of another
-                        </label>
-                        {isClone ? (
-                          <input
-                            value={cloneOfQid}
-                            onChange={(e) => setCloneOfQid(e.target.value)}
-                            placeholder="Original QID"
-                            className="mt-2 h-9 w-full max-w-xs rounded-lg border border-slate-300 px-3 text-sm text-slate-900 outline-none focus:border-indigo-500"
-                          />
+                        {schema.requires_year ? (
+                          <label className="text-xs font-semibold text-slate-800">
+                            Year <span className="text-rose-500">*</span>
+                            <input
+                              value={year}
+                              onChange={(e) => setYear(e.target.value)}
+                              className="mt-2 h-9 w-full rounded-lg border border-slate-300 px-3 text-sm text-slate-900 outline-none focus:border-indigo-500"
+                            />
+                          </label>
                         ) : null}
                       </div>
-                    ) : null}
-                  </EditorCard>
-                </div>
 
-                {isPreviewMode ? (
-                  <aside className="space-y-4">
+                      {schema.can_have_clone ? (
+                        <div className="mt-4 border-t border-slate-100 pt-4">
+                          <label className="flex items-center gap-2 text-xs font-semibold text-slate-800">
+                            <input
+                              type="checkbox"
+                              checked={isClone}
+                              onChange={(e) => setIsClone(e.target.checked)}
+                              className="h-4 w-4 rounded accent-indigo-600"
+                            />
+                            This question is a clone of another
+                          </label>
+                          {isClone ? (
+                            <input
+                              value={cloneOfQid}
+                              onChange={(e) => setCloneOfQid(e.target.value)}
+                              placeholder="Original QID"
+                              className="mt-2 h-9 w-full max-w-xs rounded-lg border border-slate-300 px-3 text-sm text-slate-900 outline-none focus:border-indigo-500"
+                            />
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </EditorCard>
+
                     <EditorCard title="Student preview">
                       <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                         <RenderInline
@@ -766,9 +819,8 @@ export function CreateQuestionPage() {
                   </aside>
                 ) : null}
               </div>
-            </>
+            </div>
           ) : null}
-        </div>
       </section>
     </AppShell>
   );
