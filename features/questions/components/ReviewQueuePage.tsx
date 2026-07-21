@@ -73,6 +73,7 @@ export function ReviewQueuePage() {
         reviewed_at: new Date().toISOString(),
       });
       setPendingAction(null);
+      setViewing(null);
       await loadQuestions(scope);
     } catch (err) {
       setError(getApiErrorMessage(err, "Could not submit review."));
@@ -155,37 +156,14 @@ export function ReviewQueuePage() {
                           <td className="px-3 py-2.5 align-top text-xs text-slate-600">{String(q.submitted_by ?? "—")}</td>
                           <td className="px-3 py-2.5 align-top text-xs text-slate-600">{String(q.submitted_at ?? "—")}</td>
                           <td className="px-3 py-2.5 align-top">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => handleView(q)}
-                                disabled={loadingQid === q.qid}
-                                className="rounded-md border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-60"
-                              >
-                                {loadingQid === q.qid ? "Loading…" : "View"}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setPendingAction({ doc: q, action: "accept" })}
-                                className="rounded-md bg-emerald-600 px-2 py-1 text-xs font-semibold text-white hover:bg-emerald-500"
-                              >
-                                Accept
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setPendingAction({ doc: q, action: "re_edit" })}
-                                className="rounded-md bg-amber-500 px-2 py-1 text-xs font-semibold text-white hover:bg-amber-400"
-                              >
-                                Re-edit
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setPendingAction({ doc: q, action: "reject" })}
-                                className="rounded-md bg-rose-600 px-2 py-1 text-xs font-semibold text-white hover:bg-rose-500"
-                              >
-                                Reject
-                              </button>
-                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleView(q)}
+                              disabled={loadingQid === q.qid}
+                              className="rounded-md border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+                            >
+                              {loadingQid === q.qid ? "Loading…" : "View"}
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -198,7 +176,14 @@ export function ReviewQueuePage() {
         ) : null}
       </div>
 
-      {viewing ? <QuestionDetailsModal question={viewing} onClose={() => setViewing(null)} /> : null}
+      {viewing ? (
+        <QuestionDetailsModal
+          question={viewing}
+          onClose={() => setViewing(null)}
+          onReview={(action) => setPendingAction({ doc: viewing, action })}
+          escapeDisabled={Boolean(pendingAction)}
+        />
+      ) : null}
       {pendingAction ? (
         <ReviewActionModal
           question={pendingAction.doc}

@@ -47,7 +47,7 @@ export function ReviewActionModal({ question, action, isSubmitting, onConfirm, o
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 p-4"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget && !isSubmitting) onClose();
       }}

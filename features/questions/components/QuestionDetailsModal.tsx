@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { LuBookOpen, LuCheck, LuCopy, LuLightbulb, LuMessageSquare, LuTag, LuX } from "react-icons/lu";
+import { LuBookOpen, LuCheck, LuCopy, LuLightbulb, LuMessageSquare, LuRefreshCw, LuTag, LuX } from "react-icons/lu";
 import { RenderInline } from "@/features/questions/components/RenderInline";
 import { contentBlocksToText } from "@/features/questions/utils/content-blocks";
-import type { QuestionDocument } from "@/types/question";
+import type { QuestionDocument, ReviewAction } from "@/types/question";
 
 function hasDisplayValue(value: unknown) {
   return value !== null && value !== undefined && value !== "";
@@ -73,12 +73,18 @@ function DetailPill({ label, value }: { label: string; value: unknown }) {
 interface QuestionDetailsModalProps {
   question: QuestionDocument;
   onClose: () => void;
+  // When provided, review action buttons render in the footer. `escapeDisabled`
+  // suppresses this modal's Escape-to-close while a stacked action modal is open.
+  onReview?: (action: ReviewAction) => void;
+  escapeDisabled?: boolean;
 }
 
-export function QuestionDetailsModal({ question, onClose }: QuestionDetailsModalProps) {
+export function QuestionDetailsModal({ question, onClose, onReview, escapeDisabled = false }: QuestionDetailsModalProps) {
   const [showAllDr, setShowAllDr] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const isClosingRef = useRef(false);
+  const escapeDisabledRef = useRef(escapeDisabled);
+  escapeDisabledRef.current = escapeDisabled;
 
   const options = getOptions(question);
   const qid = question.qid ?? "—";
@@ -104,7 +110,7 @@ export function QuestionDetailsModal({ question, onClose }: QuestionDetailsModal
   useEffect(() => {
     const raf = window.requestAnimationFrame(() => setIsVisible(true));
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") handleClose();
+      if (e.key === "Escape" && !escapeDisabledRef.current) handleClose();
     }
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -353,8 +359,33 @@ export function QuestionDetailsModal({ question, onClose }: QuestionDetailsModal
           </aside>
         </div>
 
-        <footer className="flex items-center border-t border-slate-200 bg-white px-6 py-3">
+        <footer className="flex items-center justify-between gap-3 border-t border-slate-200 bg-white px-6 py-3">
           <span className="text-[11px] text-slate-500">Question ID: Q-{qid}</span>
+          {onReview ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => onReview("accept")}
+                className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500"
+              >
+                <LuCheck className="h-3.5 w-3.5" /> Accept
+              </button>
+              <button
+                type="button"
+                onClick={() => onReview("re_edit")}
+                className="inline-flex items-center gap-1.5 rounded-md bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-400"
+              >
+                <LuRefreshCw className="h-3.5 w-3.5" /> Re-edit
+              </button>
+              <button
+                type="button"
+                onClick={() => onReview("reject")}
+                className="inline-flex items-center gap-1.5 rounded-md bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-500"
+              >
+                <LuX className="h-3.5 w-3.5" /> Reject
+              </button>
+            </div>
+          ) : null}
         </footer>
         <style>{`
           .modal-scroll {
