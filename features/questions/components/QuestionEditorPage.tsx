@@ -19,7 +19,7 @@ import { AppShell } from "@/components/common/AppShell";
 import { RenderInline } from "@/features/questions/components/RenderInline";
 import { VersionHistoryModal } from "@/features/questions/components/VersionHistoryModal";
 import { QuestionBlockEditor } from "@/features/questions/components/blocks/QuestionBlockEditor";
-import { contentBlocksToText, insertBlockAbove, insertBlockBelow, removeBlockAt } from "@/features/questions/utils/content-blocks";
+import { contentBlocksToHtml, contentBlocksToText, insertBlockAbove, insertBlockBelow, removeBlockAt } from "@/features/questions/utils/content-blocks";
 import { toQuestionView } from "@/features/questions/utils/question-kind";
 import { getTemplateSchema } from "@/features/questions/services/template-schema.service";
 import {
@@ -212,7 +212,9 @@ function LoadedQuestionEditor({
   const totalMarks = hasDisplayValue(doc.total_marks) ? String(doc.total_marks) : (schema.total_marks ?? null);
 
   const questionText = contentBlocksToText(form.question);
+  const questionHtml = contentBlocksToHtml(form.question);
   const solutionText = contentBlocksToText(form.solution);
+  const solutionHtml = contentBlocksToHtml(form.solution);
   const hintText = contentBlocksToText(form.hint);
   const solutionMarksTotal = form.solution.reduce((total, block) => total + (Number(block.marks) || 0), 0);
 
@@ -374,7 +376,7 @@ function LoadedQuestionEditor({
 
   return (
     <AppShell title="edit-question">
-      <section className="flex min-h-[calc(100vh-64px)] flex-col bg-slate-100">
+      <section className="flex h-[calc(100vh-64px)] flex-col overflow-hidden bg-slate-100">
         <div className="sticky top-0 z-10 flex flex-col gap-3 border-b border-slate-200 bg-white px-5 py-2.5 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <button type="button" onClick={() => router.push(backUrl)} className="text-slate-500 hover:text-slate-900">
@@ -461,9 +463,9 @@ function LoadedQuestionEditor({
         {error ? <div className="border-b border-rose-200 bg-rose-50 px-5 py-2 text-xs text-rose-700">{error}</div> : null}
         {notice ? <div className="border-b border-emerald-200 bg-emerald-50 px-5 py-2 text-xs text-emerald-700">{notice}</div> : null}
 
-        <div className={`grid flex-1 ${isPreviewMode ? "xl:grid-cols-[minmax(0,1.55fr)_minmax(360px,0.95fr)]" : "grid-cols-1"}`}>
+        <div className={`grid min-h-0 flex-1 ${isPreviewMode ? "xl:grid-cols-[minmax(0,1.55fr)_minmax(360px,0.95fr)]" : "grid-cols-1"}`}>
           <div
-            className="space-y-4 overflow-y-auto border-r border-slate-200 p-5"
+            className="min-h-0 space-y-4 overflow-y-auto border-r border-slate-200 p-5"
             onMouseDown={(e) => {
               const target = e.target as HTMLElement;
               if (target.closest('[data-editor-block="true"]')) return;
@@ -572,7 +574,7 @@ function LoadedQuestionEditor({
           </div>
 
           {isPreviewMode ? (
-            <aside className="space-y-4 overflow-y-auto p-5">
+            <aside className="min-h-0 space-y-4 overflow-y-auto p-5">
               <EditorCard title="Status">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="text-[11px] font-semibold text-slate-800">
@@ -622,7 +624,7 @@ function LoadedQuestionEditor({
               <EditorCard title="Student preview">
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                   <RenderInline
-                    content={questionText || "Question preview"}
+                    content={questionHtml || "Question preview"}
                     className="text-sm font-semibold leading-6 text-slate-900"
                     style={{ padding: 0, overflow: "visible" }}
                   />
@@ -676,7 +678,7 @@ function LoadedQuestionEditor({
                           )}
                         </div>
                       ) : null}
-                      <RenderInline content={solutionText} className="text-xs leading-6 text-slate-700" style={{ padding: 0, overflow: "visible" }} />
+                      <RenderInline content={solutionHtml} className="text-xs leading-6 text-slate-700" style={{ padding: 0, overflow: "visible" }} />
                     </div>
                   ) : null}
                 </div>

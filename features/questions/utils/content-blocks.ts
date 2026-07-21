@@ -22,6 +22,26 @@ export function contentBlocksToText(blocks: ContentItem[] | undefined | null): s
     .trim();
 }
 
+// Same as contentBlocksToText but keeps <img> tags intact, for callers that
+// render the result through RenderInline (which needs the tag to show the
+// image) rather than displaying it as plain text.
+export function contentBlocksToHtml(blocks: ContentItem[] | undefined | null): string {
+  if (!Array.isArray(blocks)) return "";
+  return blocks
+    .filter((block) => block && typeof block === "object" && typeof block.content === "string")
+    .map((block) => block.content as string)
+    .join(" ")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<(?!img\b)[^>]*>/gi, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 // Per-block editing helpers (question/option/dr/solution/hint are each edited
 // as an array of independent blocks, not one flattened string) — pure array
 // operations so callers just replace their state with the returned array.
