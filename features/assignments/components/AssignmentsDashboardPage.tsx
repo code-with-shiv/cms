@@ -12,38 +12,23 @@ import {
   countByLevel,
   countByReviewer,
   countByTemplate,
+  scopeFilterValue,
   scopeName,
   summarize,
   type UserBreakdownRow,
 } from "@/features/assignments/utils/assignment-stats";
 import { contentBlocksToText } from "@/features/questions/utils/content-blocks";
+import { ALL_QUESTION_STATUSES } from "@/features/questions/utils/question-status";
 import { RenderInline } from "@/features/questions/components/RenderInline";
 import { QuestionDetailsModal } from "@/features/questions/components/QuestionDetailsModal";
 import { Badge } from "@/features/questions/components/QuestionResultsTable";
 import { getQuestionByQid, getQuestions } from "@/features/questions/services/questions.service";
 import { getApiErrorMessage } from "@/utils/api-error";
 import type { Assignment, AssignmentLevel } from "@/types/assignment";
-import type { QuestionDocument, QuestionStatus } from "@/types/question";
+import type { QuestionDocument } from "@/types/question";
 import type { Template } from "@/types/template";
 
-// Explicit — omitting status_filter makes the backend default to excluding "rejected".
-const ALL_QUESTION_STATUSES: QuestionStatus[] = [
-  "draft",
-  "pending_review",
-  "accepted",
-  "accepted_with_changes",
-  "re_edit",
-  "rejected",
-  "synced",
-];
 const DRILLDOWN_LIMIT = 20; // ponytail: arbitrary cap for chapter/topic-scoped assignments with 100s of questions
-
-// The scope value get_questions_by_level_filter expects for an assignment's level.
-function scopeFilterValue(a: Assignment): string | number {
-  if (a.level === "lu") return a.assignment_json.luid ?? "";
-  if (a.level === "topic") return a.assignment_json.topic_id ?? "";
-  return a.assignment_json.chapter_id;
-}
 
 interface StatTile {
   label: string;

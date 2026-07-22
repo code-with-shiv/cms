@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { AppShell } from "@/components/common/AppShell";
 import { getAllUsers } from "@/features/users/services/users.service";
+import { getTemplates } from "@/features/templates/services/templates.service";
 import { getApiErrorMessage } from "@/utils/api-error";
 import type { Role } from "@/types/auth";
 import type { ManagedUser } from "@/types/user";
+import type { Template } from "@/types/template";
 import { UsersTable } from "./UsersTable";
 import { CreateUserPanel } from "./CreateUserPanel";
 import { SetPasswordModal } from "./SetPasswordModal";
@@ -17,6 +19,7 @@ const ROLE_FILTERS: Array<Role | "all"> = ["all", "creator", "reviewer", "admin"
 export function UsersPage() {
   const { user, isLoading: isAuthLoading } = useAuth();
   const [allUsers, setAllUsers] = useState<ManagedUser[]>([]);
+  const [templates, setTemplates] = useState<Template[]>([]);
   const [roleFilter, setRoleFilter] = useState<Role | "all">("all");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -38,8 +41,11 @@ export function UsersPage() {
       setIsLoading(true);
       setError("");
       try {
-        const data = await getAllUsers();
-        if (!cancelled) setAllUsers(data);
+        const [data, templateData] = await Promise.all([getAllUsers(), getTemplates().catch(() => [])]);
+        if (!cancelled) {
+          setAllUsers(data);
+          setTemplates(templateData);
+        }
       } catch (err) {
         if (!cancelled) setError(getApiErrorMessage(err, "Could not load users."));
       } finally {
@@ -114,6 +120,7 @@ export function UsersPage() {
         ) : (
           <UsersTable
             users={users}
+            templates={templates}
             canManagePasswords={isSuperadmin}
             onSetPassword={setPasswordTarget}
             onDeleteUser={setDeleteTarget}

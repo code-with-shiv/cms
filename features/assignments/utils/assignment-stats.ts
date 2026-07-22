@@ -103,3 +103,10 @@ export function scopeName(a: Assignment): string {
   if (a.level === "topic") return a.assignment_json.topic_name || "—";
   return a.assignment_json.chapter_name || "—";
 }
+
+// The scope value get_questions_by_level_filter expects for an assignment's level.
+export function scopeFilterValue(a: Assignment): string | number {
+  if (a.level === "lu") return a.assignment_json.luid ?? "";
+  if (a.level === "topic") return a.assignment_json.topic_id ?? "";
+  return a.assignment_json.chapter_id;
+}
