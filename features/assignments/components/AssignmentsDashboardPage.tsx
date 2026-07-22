@@ -216,8 +216,9 @@ export function AssignmentsDashboardPage() {
         status_filter: ALL_QUESTION_STATUSES,
       });
       // Scope is shared per-LU/topic/chapter and can hold other creators' questions
-      // too — only show the ones belonging to this assignment's creator.
-      const owned = qs.filter((q) => q.created_by === a.creator_email);
+      // too — scope to this assignment's creator, except admin/superadmin who see
+      // every question in the scope with no filtering.
+      const owned = isAdmin ? qs : qs.filter((q) => q.created_by === a.creator_email);
       const sorted = owned.sort(
         (x, y) => new Date(String(y.updated_at ?? 0)).getTime() - new Date(String(x.updated_at ?? 0)).getTime(),
       );
