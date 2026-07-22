@@ -43,7 +43,7 @@ function badgeTone(value: string): string {
   return "bg-slate-100 text-slate-600";
 }
 
-function Badge({ label }: { label: string }) {
+export function Badge({ label }: { label: string }) {
   return (
     <span className={`inline-flex min-w-[40px] justify-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${badgeTone(label)}`}>
       {label}

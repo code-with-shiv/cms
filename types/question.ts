@@ -178,17 +178,3 @@ export interface VersionHistory {
   collection_name: string;
   versions: VersionEntry[];
 }
-
-// One row from GET /questions/recent-activity — a single version-history entry,
-// flattened out of its parent (qid, template_id) document.
-export interface RecentActivityEntry {
-  qid: number;
-  template_id: string;
-  collection_name: string;
-  changed_by: string;
-  changed_at: string;
-  change_type: string;
-  role: string;
-  previous_status: QuestionStatus;
-  new_status: QuestionStatus;
-}

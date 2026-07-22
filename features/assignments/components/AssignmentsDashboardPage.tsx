@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { IconType } from "react-icons";
-import { LuCircleCheckBig, LuPencil, LuRefreshCw, LuSend, LuTriangleAlert, LuX } from "react-icons/lu";
+import { LuTriangleAlert } from "react-icons/lu";
 import { AppShell } from "@/components/common/AppShell";
 import { useAuth } from "@/context/AuthContext";
 import { getAllAssignments, getMyAssignments } from "@/features/assignments/services/assignments.service";
@@ -13,22 +12,31 @@ import {
   countByLevel,
   countByReviewer,
   countByTemplate,
+  scopeName,
   summarize,
   type UserBreakdownRow,
 } from "@/features/assignments/utils/assignment-stats";
-import { getQuestions, getRecentActivity } from "@/features/questions/services/questions.service";
+import { contentBlocksToText } from "@/features/questions/utils/content-blocks";
+import { RenderInline } from "@/features/questions/components/RenderInline";
+import { QuestionDetailsModal } from "@/features/questions/components/QuestionDetailsModal";
+import { Badge } from "@/features/questions/components/QuestionResultsTable";
+import { getQuestionByQid, getQuestions } from "@/features/questions/services/questions.service";
 import { getApiErrorMessage } from "@/utils/api-error";
 import type { Assignment, AssignmentLevel } from "@/types/assignment";
-import type { RecentActivityEntry } from "@/types/question";
+import type { QuestionDocument, QuestionStatus } from "@/types/question";
 import type { Template } from "@/types/template";
 
-const CHANGE_TYPE_META: Record<string, { label: string; icon: IconType; tone: string }> = {
-  submitted_for_review: { label: "Submitted for review", icon: LuSend, tone: "bg-violet-50 text-violet-600" },
-  updated: { label: "Edited", icon: LuPencil, tone: "bg-indigo-50 text-indigo-600" },
-  review_accepted: { label: "Accepted", icon: LuCircleCheckBig, tone: "bg-emerald-50 text-emerald-600" },
-  review_re_edit: { label: "Sent for re-edit", icon: LuRefreshCw, tone: "bg-amber-50 text-amber-600" },
-  review_rejected: { label: "Rejected", icon: LuX, tone: "bg-rose-50 text-rose-600" },
-};
+// Explicit — omitting status_filter makes the backend default to excluding "rejected".
+const ALL_QUESTION_STATUSES: QuestionStatus[] = [
+  "draft",
+  "pending_review",
+  "accepted",
+  "accepted_with_changes",
+  "re_edit",
+  "rejected",
+  "synced",
+];
+const DRILLDOWN_LIMIT = 20; // ponytail: arbitrary cap for chapter/topic-scoped assignments with 100s of questions
 
 // The scope value get_questions_by_level_filter expects for an assignment's level.
 function scopeFilterValue(a: Assignment): string | number {
@@ -101,10 +109,16 @@ export function AssignmentsDashboardPage() {
   const { user, isLoading: isAuthLoading } = useAuth();
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
-  const [activity, setActivity] = useState<RecentActivityEntry[]>([]);
   const [pendingReviewCount, setPendingReviewCount] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState<number | null>(null);
+  const [drillQuestions, setDrillQuestions] = useState<QuestionDocument[]>([]);
+  const [isDrillLoading, setIsDrillLoading] = useState(false);
+  const [drillError, setDrillError] = useState("");
+  const [viewingQuestion, setViewingQuestion] = useState<QuestionDocument | null>(null);
+  const [viewingQid, setViewingQid] = useState<number | null>(null);
 
   const isAdmin = user?.role === "admin" || user?.role === "superadmin";
   const isTier1 = user?.role === "creator" || user?.role === "reviewer";
@@ -118,15 +132,13 @@ export function AssignmentsDashboardPage() {
       setIsLoading(true);
       setError("");
       try {
-        const [assignmentData, templateData, activityData] = await Promise.all([
+        const [assignmentData, templateData] = await Promise.all([
           isAdmin ? getAllAssignments() : getMyAssignments(),
           getTemplates().catch(() => []),
-          getRecentActivity().catch(() => []),
         ]);
         if (cancelled) return;
         setAssignments(assignmentData);
         setTemplates(templateData);
-        setActivity(activityData);
 
         if (isReviewer) {
           // "Pending Your Review" — count of pending_review questions across every
@@ -171,6 +183,54 @@ export function AssignmentsDashboardPage() {
 
   function templateName(templateId: string): string {
     return templates.find((t) => t.template_id === templateId)?.template_name ?? templateId;
+  }
+
+  const activeAssignments = useMemo(() => assignments.filter((a) => a.status === "active"), [assignments]);
+  const selectedAssignment = assignments.find((a) => a.id === selectedAssignmentId) ?? null;
+
+  function pillLabel(a: Assignment): string {
+    return `${scopeName(a)} · ${templateName(a.template_id)}`;
+  }
+
+  async function handlePillClick(a: Assignment) {
+    if (selectedAssignmentId === a.id) {
+      setSelectedAssignmentId(null);
+      return;
+    }
+    setSelectedAssignmentId(a.id);
+    setDrillQuestions([]);
+    setDrillError("");
+    const filterValue = scopeFilterValue(a);
+    if (!filterValue) return;
+    setIsDrillLoading(true);
+    try {
+      const qs = await getQuestions({
+        template_id: a.template_id,
+        filter_value: filterValue,
+        status_filter: ALL_QUESTION_STATUSES,
+      });
+      const sorted = [...qs].sort(
+        (x, y) => new Date(String(y.updated_at ?? 0)).getTime() - new Date(String(x.updated_at ?? 0)).getTime(),
+      );
+      setDrillQuestions(sorted.slice(0, DRILLDOWN_LIMIT));
+    } catch (err) {
+      setDrillError(getApiErrorMessage(err, "Could not load questions for this assignment."));
+    } finally {
+      setIsDrillLoading(false);
+    }
+  }
+
+  async function handleViewQuestion(doc: QuestionDocument, templateId: string) {
+    setDrillError("");
+    setViewingQid(doc.qid);
+    try {
+      const results = await getQuestionByQid({ template_id: templateId, qid: doc.qid });
+      setViewingQuestion(results[0] ?? doc);
+    } catch (err) {
+      setDrillError(getApiErrorMessage(err, `Could not load full details for Q-${doc.qid}.`));
+    } finally {
+      setViewingQid(null);
+    }
   }
 
   const statTiles: StatTile[] = [
@@ -324,51 +384,77 @@ export function AssignmentsDashboardPage() {
               </div>
             )}
 
-            <div className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-              <div className="border-b border-slate-200 px-4 py-3">
-                <h2 className="text-sm font-bold text-slate-900">Recent Activity</h2>
-                <p className="text-xs text-slate-500">
-                  {isAdmin ? "Latest question actions across every creator and reviewer." : "Your latest question actions."}
-                </p>
-              </div>
-              {activity.length === 0 ? (
-                <div className="px-5 py-10 text-center text-sm text-slate-500">No recent activity.</div>
+            <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h2 className="text-sm font-bold text-slate-900">Recent Activity</h2>
+              <p className="text-xs text-slate-500">Pick an active assignment to see its most recently edited questions.</p>
+
+              {activeAssignments.length === 0 ? (
+                <p className="mt-3 text-sm text-slate-500">No active assignments.</p>
               ) : (
-                <ul className="divide-y divide-slate-100">
-                  {activity.map((a) => {
-                    const meta = CHANGE_TYPE_META[a.change_type] ?? {
-                      label: a.change_type.replace(/_/g, " "),
-                      icon: LuPencil,
-                      tone: "bg-slate-100 text-slate-600",
-                    };
-                    const Icon = meta.icon;
-                    return (
-                      <li key={`${a.template_id}-${a.qid}-${a.changed_at}-${a.change_type}`} className="flex items-center gap-3 px-4 py-3">
-                        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${meta.tone}`}>
-                          <Icon className="h-4 w-4" />
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-slate-900">
-                            Q-{a.qid} · {templateName(a.template_id)}
-                          </p>
-                          <p className="truncate text-xs text-slate-500">
-                            {meta.label}
-                            {a.previous_status && a.new_status ? ` · ${a.previous_status} → ${a.new_status}` : ""}
-                            {isAdmin ? ` · ${a.changed_by}` : ""}
-                          </p>
-                        </div>
-                        <div className="shrink-0 text-right">
-                          <p className="text-xs text-slate-400">{formatRelativeDate(a.changed_at)}</p>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {activeAssignments.map((a) => (
+                    <button
+                      key={a.id}
+                      type="button"
+                      onClick={() => handlePillClick(a)}
+                      className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                        selectedAssignmentId === a.id
+                          ? "border-indigo-600 bg-indigo-600 text-white"
+                          : "border-slate-200 bg-slate-50 text-slate-700 hover:border-indigo-300 hover:bg-indigo-50"
+                      }`}
+                    >
+                      {pillLabel(a)}
+                    </button>
+                  ))}
+                </div>
               )}
+
+              {selectedAssignment ? (
+                <div className="mt-4">
+                  {isDrillLoading ? (
+                    <p className="text-sm text-slate-500">Loading questions…</p>
+                  ) : drillError ? (
+                    <p className="text-sm text-rose-600">{drillError}</p>
+                  ) : drillQuestions.length === 0 ? (
+                    <p className="text-sm text-slate-500">No questions found for this assignment.</p>
+                  ) : (
+                    <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
+                      {drillQuestions.map((q) => (
+                        <li key={q.qid} className="flex items-center gap-3 px-3 py-2.5">
+                          <span className="shrink-0 rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-semibold text-slate-600">
+                            Q-{q.qid}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <RenderInline
+                              content={contentBlocksToText(q.question) || "Untitled question"}
+                              className="truncate text-[13px] text-slate-900"
+                              style={{ padding: 0, overflow: "visible" }}
+                            />
+                          </div>
+                          <Badge label={String(q.status)} />
+                          <span className="shrink-0 text-xs text-slate-400">
+                            {q.updated_at ? formatRelativeDate(String(q.updated_at)) : "—"}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleViewQuestion(q, selectedAssignment.template_id)}
+                            disabled={viewingQid === q.qid}
+                            className="shrink-0 text-xs font-semibold text-indigo-600 hover:text-indigo-800 disabled:opacity-50"
+                          >
+                            {viewingQid === q.qid ? "Loading…" : "View"}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ) : null}
             </div>
           </>
         )}
       </div>
+
+      {viewingQuestion ? <QuestionDetailsModal question={viewingQuestion} onClose={() => setViewingQuestion(null)} /> : null}
     </AppShell>
   );
 }
