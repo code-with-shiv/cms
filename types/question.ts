@@ -45,6 +45,7 @@ export interface QuestionDocument {
   isCloneOf?: number | string | null;
   review_comment?: string | null;
   reviewer_edited?: boolean;
+  created_by?: string;
   submitted_by?: string;
   submitted_at?: string;
   updated_by?: string;

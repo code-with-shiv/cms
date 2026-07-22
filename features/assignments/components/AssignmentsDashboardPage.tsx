@@ -58,11 +58,17 @@ const STATUS_SEGMENT_META = [
   { key: "reassigned", label: "Reassigned", barColor: "bg-amber-500" },
 ] as const;
 
-function formatRelativeDate(iso: string): string {
-  const days = Math.floor((Date.now() - new Date(iso).getTime()) / (1000 * 60 * 60 * 24));
-  if (days <= 0) return "Today";
-  if (days === 1) return "1 day ago";
-  return `${days} days ago`;
+// Today → time (e.g. "2:45 PM"), yesterday → "Yesterday", otherwise the date.
+function formatActivityTime(iso: string): string {
+  const date = new Date(iso);
+  const now = new Date();
+  if (date.toDateString() === now.toDateString()) {
+    return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  }
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
+  return date.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
 }
 
 function UserBreakdownTable({ title, rows, emailLabel }: { title: string; rows: UserBreakdownRow[]; emailLabel: string }) {
@@ -209,7 +215,10 @@ export function AssignmentsDashboardPage() {
         filter_value: filterValue,
         status_filter: ALL_QUESTION_STATUSES,
       });
-      const sorted = [...qs].sort(
+      // Scope is shared per-LU/topic/chapter and can hold other creators' questions
+      // too — only show the ones belonging to this assignment's creator.
+      const owned = qs.filter((q) => q.created_by === a.creator_email);
+      const sorted = owned.sort(
         (x, y) => new Date(String(y.updated_at ?? 0)).getTime() - new Date(String(x.updated_at ?? 0)).getTime(),
       );
       setDrillQuestions(sorted.slice(0, DRILLDOWN_LIMIT));
@@ -433,7 +442,7 @@ export function AssignmentsDashboardPage() {
                           </div>
                           <Badge label={String(q.status)} />
                           <span className="shrink-0 text-xs text-slate-400">
-                            {q.updated_at ? formatRelativeDate(String(q.updated_at)) : "—"}
+                            {q.updated_at ? formatActivityTime(String(q.updated_at)) : "—"}
                           </span>
                           <button
                             type="button"
